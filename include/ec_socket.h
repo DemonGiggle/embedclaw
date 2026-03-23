@@ -1,0 +1,41 @@
+#ifndef EC_SOCKET_H
+#define EC_SOCKET_H
+
+#include <stddef.h>
+#include <stdint.h>
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+/* Opaque socket handle */
+typedef struct ec_socket ec_socket_t;
+
+/**
+ * Connect to a remote host over TCP.
+ * Returns a socket handle on success, NULL on failure.
+ */
+ec_socket_t *ec_socket_connect(const char *host, uint16_t port);
+
+/**
+ * Send data over the socket.
+ * Returns number of bytes sent, or negative on error.
+ */
+int ec_socket_send(ec_socket_t *sock, const void *data, size_t len);
+
+/**
+ * Receive data from the socket.
+ * Returns number of bytes received, 0 on connection closed, or negative on error.
+ */
+int ec_socket_recv(ec_socket_t *sock, void *buf, size_t len, uint32_t timeout_ms);
+
+/**
+ * Close the socket and free resources.
+ */
+void ec_socket_close(ec_socket_t *sock);
+
+#ifdef __cplusplus
+}
+#endif
+
+#endif /* EC_SOCKET_H */
