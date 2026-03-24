@@ -129,6 +129,15 @@ void ec_json_add_int(ec_json_writer_t *w, const char *key, int val)
     w->need_comma = 1;
 }
 
+void ec_json_add_raw(ec_json_writer_t *w, const char *key, const char *raw_json)
+{
+    jw_comma(w);
+    jw_quoted_string(w, key);
+    jw_putc(w, ':');
+    jw_puts(w, raw_json);
+    w->need_comma = 1;
+}
+
 void ec_json_array_obj_start(ec_json_writer_t *w)
 {
     jw_comma(w);

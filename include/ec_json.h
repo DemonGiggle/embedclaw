@@ -28,6 +28,8 @@ void ec_json_array_end(ec_json_writer_t *w);
 void ec_json_key(ec_json_writer_t *w, const char *key);
 void ec_json_add_string(ec_json_writer_t *w, const char *key, const char *val);
 void ec_json_add_int(ec_json_writer_t *w, const char *key, int val);
+/* Inject a pre-built JSON value (object, array, etc.) verbatim under a key */
+void ec_json_add_raw(ec_json_writer_t *w, const char *key, const char *raw_json);
 
 /* Start a new object element inside an array */
 void ec_json_array_obj_start(ec_json_writer_t *w);

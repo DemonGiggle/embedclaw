@@ -23,15 +23,21 @@ endif()
 # Warnings
 add_compile_options(-Wall -Wextra -Wpedantic)
 
-# Sources
+# Library sources
 set(EC_SOURCES
     src/ec_socket.c
     src/ec_http.c
     src/ec_json.c
     src/ec_api.c
+    src/ec_tool.c
+    src/ec_session.c
+    src/ec_agent.c
+    src/ec_io.c
+    src/ec_io_uart.c
+    src/ec_io_telnet.c
 )
 
-# Library
+# Static library
 add_library(embedclaw STATIC ${EC_SOURCES})
 target_include_directories(embedclaw PUBLIC include)
 

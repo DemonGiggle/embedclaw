@@ -1,40 +1,66 @@
 #include "ec_api.h"
+#include "ec_agent.h"
+#include "ec_session.h"
+#include "ec_tool.h"
+#include "ec_io.h"
 #include "ec_config.h"
 
 #include <stdio.h>
 #include <string.h>
 
-static int run_demo(const char *host, int port, const char *api_key,
-                    const char *model, const char *user_prompt)
+#define SYSTEM_PROMPT \
+    "You are an embedded systems assistant. " \
+    "You have tools to read and write hardware registers. " \
+    "Use them when the user asks about hardware state or configuration."
+
+/* Static allocation — kept out of the stack */
+static ec_session_t s_session;
+static ec_agent_t   s_agent;
+
+static void run_agent_loop(const ec_api_config_t *config, const char *model)
 {
-    ec_api_config_t config = {
-        .base_url = host,
-        .port     = (uint16_t)port,
-        .api_key  = api_key,
-        .use_tls  = EC_CONFIG_USE_TLS,
-    };
+    ec_session_init(&s_session, SYSTEM_PROMPT);
+    ec_agent_init(&s_agent, config, model, &s_session);
+    ec_tool_register_hw_tools();
 
-    ec_api_message_t messages[] = {
-        { .role = "system",  .content = "You are a helpful assistant." },
-        { .role = "user",    .content = user_prompt },
-    };
+    char line[EC_CONFIG_IO_LINE_BUF];
+    char response[EC_CONFIG_CONTENT_BUF];
 
-    char reply[EC_CONFIG_REPLY_BUF];
-    printf("Sending request to %s:%d (model: %s)...\n", host, port, model);
+    ec_io_write("EmbedClaw ready. Type /reset to clear history, /quit to exit.\n> ");
 
-    int rc = ec_api_chat_completion(
-        &config, model, messages, 2, reply, sizeof(reply));
+    for (;;) {
+        int n = ec_io_read_line(line, sizeof(line));
+        if (n < 0) break; /* I/O closed */
 
-    if (rc == 0) {
-        printf("Assistant: %s\n", reply);
-    } else {
-        printf("Error: chat completion failed (rc=%d)\n", rc);
-        if (rc == EC_API_ERR_API) {
-            printf("API response: %s\n", reply);
+        if (line[0] == '\0') {
+            ec_io_write("> ");
+            continue;
+        }
+        if (strcmp(line, "/reset") == 0) {
+            ec_session_reset(&s_session);
+            ec_io_write("Session reset.\n> ");
+            continue;
+        }
+        if (strcmp(line, "/quit") == 0) {
+            ec_io_write("Goodbye.\n");
+            break;
+        }
+
+        int rc = ec_agent_run_turn(&s_agent, line, response, sizeof(response));
+        if (rc == 0) {
+            ec_io_write(response);
+            ec_io_write("\n> ");
+        } else {
+            char err[64];
+            snprintf(err, sizeof(err), "[error: agent rc=%d]\n> ", rc);
+            ec_io_write(err);
         }
     }
-    return rc;
 }
+
+/* =========================================================================
+ * Platform entry points
+ * ========================================================================= */
 
 #if defined(EC_PLATFORM_FREERTOS)
 
@@ -42,11 +68,18 @@ void vEmbedClawTask(void *pvParameters)
 {
     (void)pvParameters;
 
-    run_demo(EC_CONFIG_API_HOST, EC_CONFIG_API_PORT,
-             EC_CONFIG_API_KEY, EC_CONFIG_MODEL,
-             "Say hello in one sentence.");
+    ec_api_config_t config = {
+        .base_url = EC_CONFIG_API_HOST,
+        .port     = EC_CONFIG_API_PORT,
+        .api_key  = EC_CONFIG_API_KEY,
+        .use_tls  = EC_CONFIG_USE_TLS,
+    };
 
-    for (;;) {}
+    /* Use Telnet I/O on FreeRTOS — swap for ec_io_uart_ops for UART */
+    ec_io_init(&ec_io_telnet_ops);
+    run_agent_loop(&config, EC_CONFIG_MODEL);
+
+    for (;;) {} /* task must not return */
 }
 
 #else /* POSIX */
@@ -67,12 +100,26 @@ int main(int argc, char **argv)
     const char *model = getenv("EC_MODEL");
     if (!model) model = EC_CONFIG_MODEL;
 
-    const char *user_prompt = "Say hello in one sentence.";
-    if (argc > 1) {
-        user_prompt = argv[1];
+    /* Select I/O backend:
+     *   EC_IO=telnet  — TCP server on EC_CONFIG_TELNET_PORT (default 2323)
+     *   EC_IO=uart    — stdin/stdout (default)                            */
+    const char *io_mode = getenv("EC_IO");
+    if (io_mode && strcmp(io_mode, "telnet") == 0) {
+        ec_io_init(&ec_io_telnet_ops);
+    } else {
+        ec_io_init(&ec_io_uart_ops);
     }
 
-    return run_demo(host, port, api_key, model, user_prompt);
+    ec_api_config_t config = {
+        .base_url = host,
+        .port     = (uint16_t)port,
+        .api_key  = api_key,
+        .use_tls  = EC_CONFIG_USE_TLS,
+    };
+
+    (void)argc; (void)argv;
+    run_agent_loop(&config, model);
+    return 0;
 }
 
 #endif
