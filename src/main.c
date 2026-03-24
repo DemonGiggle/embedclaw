@@ -1,17 +1,12 @@
 #include "ec_api.h"
 #include "ec_agent.h"
 #include "ec_session.h"
-#include "ec_tool.h"
+#include "ec_skill.h"
 #include "ec_io.h"
 #include "ec_config.h"
 
 #include <stdio.h>
 #include <string.h>
-
-#define SYSTEM_PROMPT \
-    "You are an embedded systems assistant. " \
-    "You have tools to read and write hardware registers. " \
-    "Use them when the user asks about hardware state or configuration."
 
 /* Static allocation — kept out of the stack */
 static ec_session_t s_session;
@@ -19,9 +14,11 @@ static ec_agent_t   s_agent;
 
 static void run_agent_loop(const ec_api_config_t *config, const char *model)
 {
-    ec_session_init(&s_session, SYSTEM_PROMPT);
+    /* Initialise skills: registers all tools and builds the system prompt */
+    ec_skill_init();
+
+    ec_session_init(&s_session, ec_skill_get_system_prompt());
     ec_agent_init(&s_agent, config, model, &s_session);
-    ec_tool_register_hw_tools();
 
     char line[EC_CONFIG_IO_LINE_BUF];
     char response[EC_CONFIG_CONTENT_BUF];

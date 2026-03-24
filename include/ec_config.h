@@ -42,8 +42,12 @@
 #define EC_CONFIG_MAX_AGENT_ITERS      8   /* max tool-call iterations per turn */
 
 /* I/O layer */
-#define EC_CONFIG_IO_LINE_BUF          256 /* user input line buffer */
+#define EC_CONFIG_IO_LINE_BUF          256  /* user input line buffer */
 #define EC_CONFIG_TELNET_PORT          2323
+
+/* Skill layer */
+#define EC_CONFIG_SYSTEM_PROMPT_BUF    1024 /* combined system prompt buffer */
+#define EC_CONFIG_MAX_SKILLS           16   /* max registered skills */
 
 /* Legacy alias — kept for any code that still references it */
 #define EC_CONFIG_REPLY_BUF  EC_CONFIG_CONTENT_BUF

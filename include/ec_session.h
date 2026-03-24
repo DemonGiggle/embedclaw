@@ -28,7 +28,7 @@ typedef struct {
 } ec_session_entry_t;
 
 typedef struct {
-    char system_prompt[EC_CONFIG_SESSION_CONTENT_BUF];
+    char system_prompt[EC_CONFIG_SYSTEM_PROMPT_BUF];
     ec_session_entry_t entries[EC_CONFIG_MAX_HISTORY];
     int  count;
     /* Scratch buffer rebuilt by ec_session_messages() — do not access directly */

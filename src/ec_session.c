@@ -8,7 +8,7 @@ void ec_session_init(ec_session_t *s, const char *system_prompt)
     memset(s, 0, sizeof(*s));
     if (system_prompt && *system_prompt) {
         strncpy(s->system_prompt, system_prompt,
-                sizeof(s->system_prompt) - 1);
+                EC_CONFIG_SYSTEM_PROMPT_BUF - 1);
     }
 }
 

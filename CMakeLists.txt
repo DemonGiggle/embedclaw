@@ -35,6 +35,8 @@ set(EC_SOURCES
     src/ec_io.c
     src/ec_io_uart.c
     src/ec_io_telnet.c
+    src/ec_skill.c
+    src/ec_skill_table.c
 )
 
 # Static library

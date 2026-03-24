@@ -50,15 +50,8 @@ int ec_tool_dispatch(const ec_api_tool_call_t *call,
  */
 const ec_api_tool_def_t *ec_tool_api_defs(size_t *count);
 
-/* -------------------------------------------------------------------------
- * Built-in hardware tools — register with ec_tool_register_hw_tools()
- * ------------------------------------------------------------------------- */
-
-/**
- * Register hw_register_read and hw_register_write tools.
- * Safe to call multiple times (only registers once).
- */
-void ec_tool_register_hw_tools(void);
+/* Tool definitions and implementations live in ec_skill_table.c.
+ * Register them by calling ec_skill_init() at startup. */
 
 #ifdef __cplusplus
 }
