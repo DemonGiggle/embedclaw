@@ -31,9 +31,12 @@
 #define EC_CONFIG_TOOL_ARG_BUF      256    /* tool call arguments JSON */
 #define EC_CONFIG_MAX_TOOL_CALLS    4      /* max tool_calls in one LLM response */
 
-/* Session layer */
+/* Session layer
+ * MAX_HISTORY must be large enough to hold a full agentic turn without
+ * eviction: 1 (user) + MAX_AGENT_ITERS * (1 + MAX_TOOL_CALLS) + headroom.
+ * With defaults: 1 + 8*(1+4) = 41 minimum; 64 gives two full turns of room. */
 #define EC_CONFIG_SESSION_CONTENT_BUF  256 /* per-message content buffer */
-#define EC_CONFIG_MAX_HISTORY          16  /* max messages in conversation history */
+#define EC_CONFIG_MAX_HISTORY          64  /* max messages in conversation history */
 
 /* Tool framework */
 #define EC_CONFIG_MAX_TOOLS            16  /* max registered tools */

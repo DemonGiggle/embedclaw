@@ -46,3 +46,34 @@ target_include_directories(embedclaw PUBLIC include)
 # Demo executable
 add_executable(embedclaw_demo src/main.c)
 target_link_libraries(embedclaw_demo PRIVATE embedclaw)
+
+# -------------------------------------------------------------------------
+# End-to-end test executable
+#
+# Links the full stack EXCEPT ec_http.c (replaced by tests/mock_http.c) and
+# ec_socket.c (not needed; mock_http.c provides ec_http_request directly).
+# -------------------------------------------------------------------------
+if(EC_PLATFORM STREQUAL "POSIX")
+    set(EC_SOURCES_NO_HTTP
+        src/ec_json.c
+        src/ec_api.c
+        src/ec_tool.c
+        src/ec_session.c
+        src/ec_agent.c
+        src/ec_io.c
+        src/ec_io_uart.c
+        src/ec_io_telnet.c
+        src/ec_skill.c
+        src/ec_skill_table.c
+    )
+
+    add_executable(embedclaw_tests
+        ${EC_SOURCES_NO_HTTP}
+        tests/mock_http.c
+        tests/test_e2e.c
+    )
+    target_include_directories(embedclaw_tests PRIVATE include tests)
+
+    enable_testing()
+    add_test(NAME e2e COMMAND embedclaw_tests)
+endif()
