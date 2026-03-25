@@ -78,7 +78,18 @@ cmake -DEC_PLATFORM=POSIX ..
 make
 ```
 
-This produces `embedclaw_demo` and `libembedclaw.a`.
+This produces `embedclaw_demo`, `libembedclaw.a`, and `embedclaw_tests`.
+
+### Running tests
+
+From the build directory (POSIX only):
+
+```sh
+make embedclaw_tests
+ctest --verbose
+```
+
+The test suite (`tests/test_e2e.c`) runs the full agent stack with a mock HTTP layer instead of real networking.
 
 ### FreeRTOS build
 
