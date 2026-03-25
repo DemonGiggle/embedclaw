@@ -35,11 +35,12 @@
  * MAX_HISTORY must be large enough to hold a full agentic turn without
  * eviction: 1 (user) + MAX_AGENT_ITERS * (1 + MAX_TOOL_CALLS) + headroom.
  * With defaults: 1 + 8*(1+4) = 41 minimum; 64 gives two full turns of room. */
-#define EC_CONFIG_SESSION_CONTENT_BUF  256 /* per-message content buffer */
+#define EC_CONFIG_SESSION_CONTENT_BUF  512 /* per-message content buffer */
 #define EC_CONFIG_MAX_HISTORY          64  /* max messages in conversation history */
 
 /* Tool framework */
 #define EC_CONFIG_MAX_TOOLS            16  /* max registered tools */
+#define EC_CONFIG_TOOL_RESULT_BUF      4096 /* per-tool result buffer */
 
 /* Agent loop */
 #define EC_CONFIG_MAX_AGENT_ITERS      8   /* max tool-call iterations per turn */
@@ -49,8 +50,15 @@
 #define EC_CONFIG_TELNET_PORT          2323
 
 /* Skill layer */
-#define EC_CONFIG_SYSTEM_PROMPT_BUF    1024 /* combined system prompt buffer */
+#define EC_CONFIG_SYSTEM_PROMPT_BUF    2048 /* combined system prompt buffer */
 #define EC_CONFIG_MAX_SKILLS           16   /* max registered skills */
+
+/* Web browsing skill */
+#define EC_CONFIG_BRAVE_API_HOST       "api.search.brave.com"
+#define EC_CONFIG_BRAVE_API_PORT       80
+#define EC_CONFIG_BRAVE_API_KEY        "BSA-CHANGE-ME"
+#define EC_CONFIG_WEB_FETCH_MAX        4096 /* max bytes returned by web_fetch */
+#define EC_CONFIG_WEB_SEARCH_COUNT     5    /* results per search */
 
 /* Legacy alias — kept for any code that still references it */
 #define EC_CONFIG_REPLY_BUF  EC_CONFIG_CONTENT_BUF

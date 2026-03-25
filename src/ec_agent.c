@@ -8,7 +8,7 @@
 static ec_api_response_t s_response;
 
 /* Per-tool result buffer reused across dispatches each turn */
-static char s_tool_result[EC_CONFIG_SESSION_CONTENT_BUF];
+static char s_tool_result[EC_CONFIG_TOOL_RESULT_BUF];
 
 void ec_agent_init(ec_agent_t *agent,
                    const ec_api_config_t *api_config,

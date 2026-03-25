@@ -110,6 +110,7 @@ export EC_API_KEY=sk-...
 export EC_API_HOST=api.openai.com
 export EC_API_PORT=80
 export EC_MODEL=gpt-4o
+export EC_BRAVE_API_KEY=BSA-...   # optional, for web_search
 
 ./build/embedclaw_demo
 ```
@@ -150,6 +151,12 @@ All limits are compile-time constants in `include/ec_config.h`:
 | `EC_CONFIG_MAX_AGENT_ITERS` | `8`     | Max tool-call iterations per turn        |
 | `EC_CONFIG_IO_LINE_BUF`     | `256`   | User input line buffer (bytes)           |
 | `EC_CONFIG_TELNET_PORT`     | `2323`  | Telnet listen port                       |
+| `EC_CONFIG_TOOL_RESULT_BUF` | `4096` | Per-tool result buffer (bytes)           |
+| `EC_CONFIG_BRAVE_API_HOST`  | `api.search.brave.com` | Brave Search API hostname |
+| `EC_CONFIG_BRAVE_API_PORT`  | `80`    | Brave Search API port                    |
+| `EC_CONFIG_BRAVE_API_KEY`   | `BSA-CHANGE-ME` | Brave Search subscription token   |
+| `EC_CONFIG_WEB_FETCH_MAX`   | `4096`  | Max bytes returned by web_fetch          |
+| `EC_CONFIG_WEB_SEARCH_COUNT`| `5`     | Number of search results to return       |
 
 ---
 
@@ -206,6 +213,26 @@ static const ec_io_ops_t my_io_ops = {
 
 ec_io_init(&my_io_ops);
 ```
+
+---
+
+## Web browsing tools
+
+Two tools provide web access, registered via the `web_browsing` skill:
+
+**`web_search`** — search the web using the Brave Search API.
+```
+arguments: { "query": "FreeRTOS task priorities" }
+result:    { "results": [ { "title": "...", "url": "...", "description": "..." }, ... ] }
+```
+
+**`web_fetch`** — fetch the content of a URL via HTTP GET.
+```
+arguments: { "url": "http://example.com/data.json" }
+result:    { "status": 200, "body": "<page content, truncated>" }
+```
+
+The Brave Search API key is configured via `EC_BRAVE_API_KEY` (environment variable on POSIX, or `EC_CONFIG_BRAVE_API_KEY` at compile time). Response bodies from `web_fetch` are truncated to `EC_CONFIG_WEB_FETCH_MAX` (default 4096 bytes).
 
 ---
 
