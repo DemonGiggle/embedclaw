@@ -9,8 +9,10 @@ It is the embedded counterpart to OpenClaw — same agentic loop, same OpenAI to
 ## Features
 
 - **OpenAI-compatible** — uses the standard `/v1/chat/completions` API with `tool_calls` JSON format; no custom protocol
+- **TLS/HTTPS** — mbedTLS integration with embedded CA bundle; no filesystem required
 - **Agentic loop** — dispatches tool calls from the LLM, feeds results back, and loops until a final text response
-- **Built-in hardware tools** — `hw_register_read` and `hw_register_write` for 32-bit memory-mapped register access
+- **Skill system** — compile-time capability bundles; each skill contributes tools and LLM system context
+- **Built-in tools** — hardware register read/write, web search (Brave API), and web page fetch
 - **Extensible tool framework** — register new tools with a name, JSON Schema, and a C handler function
 - **Persistent conversation** — session history survives UART/Telnet reconnects across the device lifetime
 - **Transport-agnostic I/O** — swap between UART and Telnet (or add new transports) without touching the agent logic
@@ -42,13 +44,18 @@ It is the embedded counterpart to OpenClaw — same agentic loop, same OpenAI to
 └──────┬──────────┬───────┘
        │          │
        ▼          ▼
-┌────────────┐  ┌─────────────────────────┐
-│  Chat API  │  │  Tool Framework         │
-│  (ec_api)  │  │  (ec_tool)              │
-│  JSON +    │  │  Registry, dispatcher,  │
-│  HTTP POST │  │  hw_register_read/write │
-└─────┬──────┘  └─────────────────────────┘
-      │
+┌────────────┐  ┌─────────────────────────────────────┐
+│  Chat API  │  │  Skill System  (ec_skill)            │
+│  (ec_api)  │  │  ┌───────────────────────────────┐   │
+│  JSON +    │  │  │ hw_register_control            │   │
+│  HTTP POST │  │  │  hw_register_read/write        │   │
+│            │  │  ├───────────────────────────────┤   │
+│            │  │  │ web_browsing                   │   │
+│            │  │  │  web_search, web_fetch         │   │
+│            │  │  └───────────────────────────────┘   │
+└─────┬──────┘  └──────────────┬──────────────────────┘
+      │                        │  (web tools also use HTTP)
+      ├────────────────────────┘
       ▼
 ┌─────────────────────────┐
 │  HTTP Client (ec_http)  │  HTTP/1.1, chunked transfer encoding
@@ -56,7 +63,8 @@ It is the embedded counterpart to OpenClaw — same agentic loop, same OpenAI to
              │
              ▼
 ┌─────────────────────────┐
-│  Socket  (ec_socket)    │  FreeRTOS+TCP  /  POSIX shim
+│  Socket  (ec_socket)    │  TCP + optional TLS (mbedTLS)
+│                         │  FreeRTOS+TCP / POSIX
 └─────────────────────────┘
 ```
 
@@ -150,28 +158,37 @@ telnet localhost 2323
 
 All limits are compile-time constants in `include/ec_config.h`:
 
-| Constant                    | Default | Description                              |
-|-----------------------------|---------|------------------------------------------|
-| `EC_CONFIG_API_HOST`        | `api.openai.com` | LLM API hostname                |
-| `EC_CONFIG_API_PORT`        | `443`   | TCP port for LLM API                     |
-| `EC_CONFIG_MODEL`           | `gpt-4o` | Model name                             |
-| `EC_CONFIG_REQUEST_BUF`     | `4096`  | Outgoing JSON request body (bytes)       |
-| `EC_CONFIG_RESPONSE_BUF`    | `8192`  | Raw HTTP response body (bytes)           |
-| `EC_CONFIG_CONTENT_BUF`     | `2048`  | Extracted LLM text response (bytes)      |
-| `EC_CONFIG_TOOL_ARG_BUF`    | `256`   | Per-tool-call arguments JSON (bytes)     |
-| `EC_CONFIG_MAX_TOOL_CALLS`  | `4`     | Max tool calls per LLM response          |
-| `EC_CONFIG_SESSION_CONTENT_BUF` | `256` | Per-message content in history       |
-| `EC_CONFIG_MAX_HISTORY`     | `16`    | Max messages in conversation history     |
-| `EC_CONFIG_MAX_TOOLS`       | `16`    | Max registered tools                     |
-| `EC_CONFIG_MAX_AGENT_ITERS` | `8`     | Max tool-call iterations per turn        |
-| `EC_CONFIG_IO_LINE_BUF`     | `256`   | User input line buffer (bytes)           |
-| `EC_CONFIG_TELNET_PORT`     | `2323`  | Telnet listen port                       |
-| `EC_CONFIG_TOOL_RESULT_BUF` | `4096` | Per-tool result buffer (bytes)           |
-| `EC_CONFIG_BRAVE_API_HOST`  | `api.search.brave.com` | Brave Search API hostname |
-| `EC_CONFIG_BRAVE_API_PORT`  | `443`   | Brave Search API port                    |
-| `EC_CONFIG_BRAVE_API_KEY`   | `BSA-CHANGE-ME` | Brave Search subscription token   |
-| `EC_CONFIG_WEB_FETCH_MAX`   | `4096`  | Max bytes returned by web_fetch          |
-| `EC_CONFIG_WEB_SEARCH_COUNT`| `5`     | Number of search results to return       |
+| Constant | Default | Description |
+|---|---|---|
+| **API endpoint** | | |
+| `EC_CONFIG_API_HOST` | `api.openai.com` | LLM API hostname |
+| `EC_CONFIG_API_PORT` | `443` | LLM API port |
+| `EC_CONFIG_USE_TLS` | `1` | Enable TLS (set to 0 for plain HTTP) |
+| `EC_CONFIG_MODEL` | `gpt-4o` | Model name |
+| **HTTP / buffers** | | |
+| `EC_CONFIG_REQUEST_BUF` | `4096` | Outgoing JSON request body (bytes) |
+| `EC_CONFIG_RESPONSE_BUF` | `8192` | Raw HTTP response body (bytes) |
+| `EC_CONFIG_CONTENT_BUF` | `2048` | Extracted LLM text response (bytes) |
+| `EC_CONFIG_TOOL_ARG_BUF` | `256` | Per-tool-call arguments JSON (bytes) |
+| `EC_CONFIG_TOOL_RESULT_BUF` | `4096` | Per-tool result buffer (bytes) |
+| **Session** | | |
+| `EC_CONFIG_SESSION_CONTENT_BUF` | `512` | Per-message content in history |
+| `EC_CONFIG_MAX_HISTORY` | `64` | Max messages in conversation history |
+| `EC_CONFIG_MAX_TOOL_CALLS` | `4` | Max tool calls per LLM response |
+| `EC_CONFIG_MAX_AGENT_ITERS` | `8` | Max tool-call iterations per turn |
+| **Tool / skill framework** | | |
+| `EC_CONFIG_MAX_TOOLS` | `16` | Max registered tools |
+| `EC_CONFIG_MAX_SKILLS` | `16` | Max registered skills |
+| `EC_CONFIG_SYSTEM_PROMPT_BUF` | `2048` | Combined system prompt buffer (bytes) |
+| **I/O layer** | | |
+| `EC_CONFIG_IO_LINE_BUF` | `256` | User input line buffer (bytes) |
+| `EC_CONFIG_TELNET_PORT` | `2323` | Telnet listen port |
+| **Web browsing skill** | | |
+| `EC_CONFIG_BRAVE_API_HOST` | `api.search.brave.com` | Brave Search API hostname |
+| `EC_CONFIG_BRAVE_API_PORT` | `443` | Brave Search API port |
+| `EC_CONFIG_BRAVE_API_KEY` | `BSA-CHANGE-ME` | Brave Search subscription token |
+| `EC_CONFIG_WEB_FETCH_MAX` | `4096` | Max bytes returned by web_fetch |
+| `EC_CONFIG_WEB_SEARCH_COUNT` | `5` | Number of search results to return |
 
 ---
 
@@ -253,7 +270,7 @@ The Brave Search API key is configured via `EC_BRAVE_API_KEY` (environment varia
 
 ## Hardware register tools
 
-Two tools are built in and registered via `ec_tool_register_hw_tools()`:
+Two tools are registered via the `hw_register_control` skill:
 
 **`hw_register_read`** — read a 32-bit memory-mapped register.
 ```
