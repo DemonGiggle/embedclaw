@@ -172,6 +172,7 @@ int ec_api_chat_completion(
         .headers  = extra_headers,
         .body     = s_req_buf,
         .body_len = (size_t)json_len,
+        .use_tls  = config->use_tls,
     };
 
     ec_http_response_t resp;

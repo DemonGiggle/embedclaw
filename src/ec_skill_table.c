@@ -250,13 +250,14 @@ static int web_search_fn(const char *args_json,
              brave_api_key());
 
     ec_http_request_t req = {
-        .method  = "GET",
-        .host    = EC_CONFIG_BRAVE_API_HOST,
-        .port    = EC_CONFIG_BRAVE_API_PORT,
-        .path    = path,
-        .headers = headers,
-        .body    = NULL,
+        .method   = "GET",
+        .host     = EC_CONFIG_BRAVE_API_HOST,
+        .port     = EC_CONFIG_BRAVE_API_PORT,
+        .path     = path,
+        .headers  = headers,
+        .body     = NULL,
         .body_len = 0,
+        .use_tls  = EC_CONFIG_USE_TLS,
     };
 
     char resp_buf[EC_CONFIG_RESPONSE_BUF];
@@ -320,16 +321,19 @@ static int web_search_fn(const char *args_json,
 static int parse_url(const char *url,
                      char *host, size_t host_size,
                      uint16_t *port,
-                     char *path, size_t path_size)
+                     char *path, size_t path_size,
+                     int *use_tls)
 {
     /* Skip scheme */
     const char *p = url;
     *port = 80;
+    *use_tls = 0;
     if (strncmp(p, "http://", 7) == 0) {
         p += 7;
     } else if (strncmp(p, "https://", 8) == 0) {
         p += 8;
         *port = 443;
+        *use_tls = 1;
     }
 
     /* Extract host */
@@ -375,8 +379,9 @@ static int web_fetch_fn(const char *args_json,
     char host[128];
     uint16_t port;
     char path[384];
+    int use_tls = 0;
     if (parse_url(url, host, sizeof(host), &port,
-                  path, sizeof(path)) != 0) {
+                  path, sizeof(path), &use_tls) != 0) {
         snprintf(out_json, out_size, "{\"error\":\"invalid url\"}");
         return -1;
     }
@@ -389,6 +394,7 @@ static int web_fetch_fn(const char *args_json,
         .headers  = "Accept: text/html, application/json, text/plain\r\n",
         .body     = NULL,
         .body_len = 0,
+        .use_tls  = use_tls,
     };
 
     char resp_buf[EC_CONFIG_RESPONSE_BUF];

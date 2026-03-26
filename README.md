@@ -68,7 +68,16 @@ It is the embedded counterpart to OpenClaw — same agentic loop, same OpenAI to
 
 - CMake ≥ 3.10
 - C99 compiler (GCC or Clang)
+- mbedTLS (included as a git submodule for TLS/HTTPS support)
 - For FreeRTOS builds: FreeRTOS+TCP and a cross-compiler toolchain
+
+### Cloning
+
+```sh
+git clone --recurse-submodules https://github.com/user/embedclaw.git
+# Or if already cloned:
+git submodule update --init
+```
 
 ### Host build (POSIX)
 
@@ -76,6 +85,12 @@ It is the embedded counterpart to OpenClaw — same agentic loop, same OpenAI to
 mkdir build && cd build
 cmake -DEC_PLATFORM=POSIX ..
 make
+```
+
+To build without TLS (no mbedTLS dependency):
+
+```sh
+cmake -DEC_PLATFORM=POSIX -DEC_ENABLE_TLS=OFF ..
 ```
 
 This produces `embedclaw_demo`, `libembedclaw.a`, and `embedclaw_tests`.
@@ -108,7 +123,7 @@ Set your API credentials and start the agent:
 ```sh
 export EC_API_KEY=sk-...
 export EC_API_HOST=api.openai.com
-export EC_API_PORT=80
+export EC_API_PORT=443
 export EC_MODEL=gpt-4o
 export EC_BRAVE_API_KEY=BSA-...   # optional, for web_search
 
@@ -138,7 +153,7 @@ All limits are compile-time constants in `include/ec_config.h`:
 | Constant                    | Default | Description                              |
 |-----------------------------|---------|------------------------------------------|
 | `EC_CONFIG_API_HOST`        | `api.openai.com` | LLM API hostname                |
-| `EC_CONFIG_API_PORT`        | `80`    | TCP port (set to 443 when TLS is ready)  |
+| `EC_CONFIG_API_PORT`        | `443`   | TCP port for LLM API                     |
 | `EC_CONFIG_MODEL`           | `gpt-4o` | Model name                             |
 | `EC_CONFIG_REQUEST_BUF`     | `4096`  | Outgoing JSON request body (bytes)       |
 | `EC_CONFIG_RESPONSE_BUF`    | `8192`  | Raw HTTP response body (bytes)           |
@@ -153,7 +168,7 @@ All limits are compile-time constants in `include/ec_config.h`:
 | `EC_CONFIG_TELNET_PORT`     | `2323`  | Telnet listen port                       |
 | `EC_CONFIG_TOOL_RESULT_BUF` | `4096` | Per-tool result buffer (bytes)           |
 | `EC_CONFIG_BRAVE_API_HOST`  | `api.search.brave.com` | Brave Search API hostname |
-| `EC_CONFIG_BRAVE_API_PORT`  | `80`    | Brave Search API port                    |
+| `EC_CONFIG_BRAVE_API_PORT`  | `443`   | Brave Search API port                    |
 | `EC_CONFIG_BRAVE_API_KEY`   | `BSA-CHANGE-ME` | Brave Search subscription token   |
 | `EC_CONFIG_WEB_FETCH_MAX`   | `4096`  | Max bytes returned by web_fetch          |
 | `EC_CONFIG_WEB_SEARCH_COUNT`| `5`     | Number of search results to return       |
@@ -260,11 +275,13 @@ On POSIX builds, a 16-register mock array at base `0x40000000` is used instead o
 
 ## Roadmap
 
+- [x] TLS/HTTPS via mbedTLS (POSIX, with embedded CA bundle)
 - [ ] FreeRTOS+TCP socket backend (`ec_socket.c`)
 - [ ] FreeRTOS UART and Telnet I/O backends
-- [ ] TLS/HTTPS via mbedTLS or wolfSSL
+- [ ] FreeRTOS TLS support (socket layer already TLS-aware)
 - [ ] Flash/NVS persistence for conversation history across power cycles
 - [ ] Hardware register address allowlist for production safety
+- [ ] Minimal mbedTLS config for reduced binary size on embedded targets
 
 See [plan.md](plan.md) for the detailed implementation plan and [spec.md](spec.md) for the full design specification.
 

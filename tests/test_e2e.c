@@ -79,6 +79,34 @@
         "]}," \
       "\"finish_reason\":\"tool_calls\"}]}"
 
+/* Single tool call — web_search */
+#define RESP_WEB_SEARCH(call_id, query) \
+    "{\"choices\":[{" \
+      "\"message\":{\"role\":\"assistant\",\"content\":null," \
+        "\"tool_calls\":[{" \
+          "\"id\":\"" call_id "\"," \
+          "\"type\":\"function\"," \
+          "\"function\":{" \
+            "\"name\":\"web_search\"," \
+            "\"arguments\":\"{\\\"query\\\":\\\"" query "\\\"}\"" \
+          "}" \
+        "}]}," \
+      "\"finish_reason\":\"tool_calls\"}]}"
+
+/* Single tool call — web_fetch */
+#define RESP_WEB_FETCH(call_id, url) \
+    "{\"choices\":[{" \
+      "\"message\":{\"role\":\"assistant\",\"content\":null," \
+        "\"tool_calls\":[{" \
+          "\"id\":\"" call_id "\"," \
+          "\"type\":\"function\"," \
+          "\"function\":{" \
+            "\"name\":\"web_fetch\"," \
+            "\"arguments\":\"{\\\"url\\\":\\\"" url "\\\"}\"" \
+          "}" \
+        "}]}," \
+      "\"finish_reason\":\"tool_calls\"}]}"
+
 /* Unknown tool call */
 #define RESP_UNKNOWN_TOOL(call_id) \
     "{\"choices\":[{" \
@@ -335,6 +363,110 @@ static int test_session_persistence(void)
 }
 
 /* =========================================================================
+ * Test 8 — web_search tool dispatch
+ *
+ * User:  "search for FreeRTOS priorities"
+ * LLM 1: tool_call → web_search("FreeRTOS priorities")
+ * Tool:  calls ec_http_request to Brave API (mock returns search results)
+ * LLM 2: text → "FreeRTOS uses priority levels 0-N."
+ * Expect: 3 HTTP calls (LLM → Brave API → LLM), result fed back
+ * ========================================================================= */
+static int test_web_search_dispatch(void)
+{
+    setup();
+
+    /* 1. LLM decides to call web_search */
+    mock_http_queue(RESP_WEB_SEARCH("call_ws1", "FreeRTOS priorities"), 200);
+
+    /* 2. web_search_fn internally calls ec_http_request to Brave API */
+    mock_http_queue(
+        "{\"web\":{\"results\":["
+          "{\"title\":\"FreeRTOS Task Priorities\","
+           "\"url\":\"https://freertos.org/priorities\","
+           "\"description\":\"How task priorities work.\"}"
+        "]}}", 200);
+
+    /* 3. Agent sends tool result to LLM, LLM responds with text */
+    mock_http_queue(RESP_TEXT("FreeRTOS uses priority levels 0-N."), 200);
+
+    char response[EC_CONFIG_CONTENT_BUF];
+    int rc = ec_agent_run_turn(&s_agent,
+                               "how do FreeRTOS task priorities work?",
+                               response, sizeof(response));
+
+    ASSERT_EQ(rc, 0, "run_turn should succeed");
+    ASSERT_EQ(mock_http_call_count(), 3, "three HTTP calls: LLM + Brave + LLM");
+
+    /* Verify the tool result was fed back to the LLM */
+    const char *req3 = mock_http_req_body(2);
+    ASSERT(req3 != NULL, "third request body captured");
+    ASSERT_STR(req3, "\"role\":\"tool\"", "tool result sent back to LLM");
+    ASSERT_STR(req3, "FreeRTOS Task Priorities",
+               "tool result contains search title");
+    return 1;
+}
+
+/* =========================================================================
+ * Test 9 — web_fetch tool dispatch
+ *
+ * User:  "fetch http://example.com/data.json"
+ * LLM 1: tool_call → web_fetch("http://example.com/data.json")
+ * Tool:  calls ec_http_request (mock returns JSON body)
+ * LLM 2: text → "The temperature is 22.5 celsius."
+ * Expect: 3 HTTP calls, fetched content relayed to LLM
+ * ========================================================================= */
+static int test_web_fetch_dispatch(void)
+{
+    setup();
+
+    mock_http_queue(RESP_WEB_FETCH("call_wf1",
+                                    "http://example.com/data.json"), 200);
+    mock_http_queue("{\"temperature\": 22.5, \"unit\": \"celsius\"}", 200);
+    mock_http_queue(RESP_TEXT("The temperature is 22.5 celsius."), 200);
+
+    char response[EC_CONFIG_CONTENT_BUF];
+    int rc = ec_agent_run_turn(&s_agent,
+                               "fetch http://example.com/data.json",
+                               response, sizeof(response));
+
+    ASSERT_EQ(rc, 0, "run_turn should succeed");
+    ASSERT_EQ(mock_http_call_count(), 3, "three HTTP calls: LLM + fetch + LLM");
+
+    const char *req3 = mock_http_req_body(2);
+    ASSERT(req3 != NULL, "third request body captured");
+    ASSERT_STR(req3, "\"role\":\"tool\"", "tool result sent to LLM");
+    ASSERT_STR(req3, "22.5", "tool result contains fetched data");
+    return 1;
+}
+
+/* =========================================================================
+ * Test 10 — web_search with Brave API error
+ *
+ * Brave returns 401 → tool produces error JSON → agent continues gracefully
+ * ========================================================================= */
+static int test_web_search_api_error(void)
+{
+    setup();
+
+    mock_http_queue(RESP_WEB_SEARCH("call_ws2", "test query"), 200);
+    mock_http_queue("{\"error\":\"unauthorized\"}", 401);
+    mock_http_queue(RESP_TEXT("Search failed due to auth error."), 200);
+
+    char response[EC_CONFIG_CONTENT_BUF];
+    int rc = ec_agent_run_turn(&s_agent, "search for something",
+                               response, sizeof(response));
+
+    ASSERT_EQ(rc, 0, "agent should handle tool error gracefully");
+    ASSERT_EQ(mock_http_call_count(), 3, "three HTTP calls");
+
+    const char *req3 = mock_http_req_body(2);
+    ASSERT(req3 != NULL, "third request body captured");
+    ASSERT_STR(req3, "\"role\":\"tool\"", "error fed back as tool result");
+    ASSERT_STR(req3, "error", "tool result mentions error");
+    return 1;
+}
+
+/* =========================================================================
  * Main
  * ========================================================================= */
 
@@ -352,6 +484,9 @@ int main(void)
     RUN_TEST(test_max_iterations);
     RUN_TEST(test_unknown_tool);
     RUN_TEST(test_session_persistence);
+    RUN_TEST(test_web_search_dispatch);
+    RUN_TEST(test_web_fetch_dispatch);
+    RUN_TEST(test_web_search_api_error);
 
     PRINT_RESULTS();
     return (_tests_pass == _tests_run) ? 0 : 1;

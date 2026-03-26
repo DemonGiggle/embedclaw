@@ -12,10 +12,17 @@ extern "C" {
 typedef struct ec_socket ec_socket_t;
 
 /**
- * Connect to a remote host over TCP.
- * Returns a socket handle on success, NULL on failure.
+ * Connect to a remote host over TCP, optionally with TLS.
+ *
+ * @param host      Hostname or IP address.
+ * @param port      TCP port number.
+ * @param use_tls   1 = perform TLS handshake after TCP connect, 0 = plain TCP.
+ * @return Socket handle on success, NULL on failure.
+ *
+ * When EC_CONFIG_USE_TLS is 0 (mbedTLS not linked), passing use_tls=1
+ * returns NULL.
  */
-ec_socket_t *ec_socket_connect(const char *host, uint16_t port);
+ec_socket_t *ec_socket_connect(const char *host, uint16_t port, int use_tls);
 
 /**
  * Send data over the socket.

@@ -16,6 +16,7 @@ typedef struct {
     const char *headers;      /* extra headers, each ending with \r\n, or NULL */
     const char *body;
     size_t      body_len;
+    int         use_tls;      /* 1 = TLS/HTTPS, 0 = plain HTTP */
 } ec_http_request_t;
 
 typedef struct {

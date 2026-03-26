@@ -171,7 +171,7 @@ int ec_http_request(const ec_http_request_t *req,
     }
 
     /* Connect */
-    ec_socket_t *sock = ec_socket_connect(req->host, req->port);
+    ec_socket_t *sock = ec_socket_connect(req->host, req->port, req->use_tls);
     if (!sock) {
         return EC_HTTP_ERR_CONNECT;
     }

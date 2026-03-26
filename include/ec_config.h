@@ -13,9 +13,11 @@
 
 /* API endpoint */
 #define EC_CONFIG_API_HOST     "api.openai.com"
-#define EC_CONFIG_API_PORT     80
+#define EC_CONFIG_API_PORT     443
 #define EC_CONFIG_API_KEY      "sk-CHANGE-ME"
-#define EC_CONFIG_USE_TLS      0
+#ifndef EC_CONFIG_USE_TLS
+#define EC_CONFIG_USE_TLS      1
+#endif
 
 /* Model */
 #define EC_CONFIG_MODEL        "gpt-4o"
@@ -55,7 +57,7 @@
 
 /* Web browsing skill */
 #define EC_CONFIG_BRAVE_API_HOST       "api.search.brave.com"
-#define EC_CONFIG_BRAVE_API_PORT       80
+#define EC_CONFIG_BRAVE_API_PORT       443
 #define EC_CONFIG_BRAVE_API_KEY        "BSA-CHANGE-ME"
 #define EC_CONFIG_WEB_FETCH_MAX        4096 /* max bytes returned by web_fetch */
 #define EC_CONFIG_WEB_SEARCH_COUNT     5    /* results per search */
