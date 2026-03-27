@@ -4,6 +4,7 @@
 #include "ec_skill.h"
 #include "ec_io.h"
 #include "ec_config.h"
+#include "ec_log.h"
 
 #include <stdio.h>
 #include <string.h>
@@ -14,6 +15,9 @@ static ec_agent_t   s_agent;
 
 static void run_agent_loop(const ec_api_config_t *config, const char *model)
 {
+    /* Initialise debug logging (checks EC_DEBUG env on POSIX) */
+    ec_log_init();
+
     /* Initialise skills: registers all tools and builds the system prompt */
     ec_skill_init();
 

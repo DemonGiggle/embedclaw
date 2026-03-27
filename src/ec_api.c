@@ -1,6 +1,7 @@
 #include "ec_api.h"
 #include "ec_http.h"
 #include "ec_json.h"
+#include "ec_log.h"
 
 #include <stdio.h>
 #include <string.h>
@@ -158,6 +159,10 @@ int ec_api_chat_completion(
     int json_len = build_request(model, messages, num_messages, tools, num_tools);
     if (json_len < 0) return EC_API_ERR_JSON_BUILD;
 
+    EC_LOG_DEBUG(">>> LLM request: POST %s:%u/v1/chat/completions",
+                 config->base_url, (unsigned)config->port);
+    EC_LOG_BODY("request body", s_req_buf, (size_t)json_len);
+
     char extra_headers[256];
     snprintf(extra_headers, sizeof(extra_headers),
         "Content-Type: application/json\r\n"
@@ -178,6 +183,9 @@ int ec_api_chat_completion(
     ec_http_response_t resp;
     int rc = ec_http_request(&req, &resp, s_resp_buf, sizeof(s_resp_buf));
     if (rc != 0) return EC_API_ERR_HTTP;
+
+    EC_LOG_DEBUG("<<< LLM response: HTTP %d", resp.status_code);
+    EC_LOG_BODY("response body", resp.body, resp.body_len);
 
     if (resp.status_code < 200 || resp.status_code >= 300) {
         /* Copy error body into content for debugging */

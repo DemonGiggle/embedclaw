@@ -62,6 +62,11 @@
 #define EC_CONFIG_WEB_FETCH_MAX        4096 /* max bytes returned by web_fetch */
 #define EC_CONFIG_WEB_SEARCH_COUNT     5    /* results per search */
 
+/* Debug logging (FreeRTOS: set to 1 to enable; POSIX: use EC_DEBUG=1 env) */
+#ifndef EC_CONFIG_DEBUG_LOG
+#define EC_CONFIG_DEBUG_LOG    0
+#endif
+
 /* Legacy alias — kept for any code that still references it */
 #define EC_CONFIG_REPLY_BUF  EC_CONFIG_CONTENT_BUF
 
