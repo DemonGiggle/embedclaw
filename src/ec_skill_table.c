@@ -21,6 +21,20 @@
 #include "ec_json.h"
 #include "ec_http.h"
 #include "ec_config.h"
+#include "ec_hw_datasheet.h"
+
+/*
+ * Include the ASIC-specific register map header here.
+ * Replace with your own chip's header (e.g. ec_hw_my_asic.h).
+ * If no ASIC header is included, define EC_HW_NO_DATASHEET to compile
+ * with an empty register map.
+ */
+#if !defined(EC_HW_NO_DATASHEET)
+#include "ec_hw_example_asic.h"
+#else
+const ec_hw_module_t *EC_HW_MODULES      = NULL;
+const size_t          EC_HW_MODULE_COUNT = 0;
+#endif
 
 #include <string.h>
 #include <stdio.h>
@@ -185,6 +199,187 @@ static const ec_tool_def_t s_hw_tools[] = {
               "\"required\":[\"address\",\"value\"]"
             "}",
         .fn = hw_reg_write_fn,
+    },
+};
+
+/* ============================================================================
+ * Skill: hw_datasheet
+ *
+ * Provides lookup tools for the ASIC register map so the LLM can discover
+ * modules, registers, and bit fields on demand without a huge system prompt.
+ * ============================================================================ */
+
+/* hw_module_list ----------------------------------------------------------
+ * args:   {} (no arguments)
+ * result: { "modules": [ { "name": "uart0", "base_addr": "0x40001000",
+ *                           "description": "..." }, ... ] }              */
+
+static int hw_module_list_fn(const char *args_json,
+                             char *out_json, size_t out_size)
+{
+    (void)args_json;
+
+    ec_json_writer_t w;
+    ec_json_writer_init(&w, out_json, out_size);
+    ec_json_obj_start(&w);
+    ec_json_array_start(&w, "modules");
+
+    for (size_t i = 0; i < EC_HW_MODULE_COUNT; i++) {
+        const ec_hw_module_t *m = &EC_HW_MODULES[i];
+        ec_json_array_obj_start(&w);
+        ec_json_add_string(&w, "name", m->name);
+
+        char addr_str[16];
+        snprintf(addr_str, sizeof(addr_str), "0x%08x", (unsigned)m->base_addr);
+        ec_json_add_string(&w, "base_addr", addr_str);
+        ec_json_add_string(&w, "description", m->description);
+        ec_json_obj_end(&w);
+    }
+
+    ec_json_array_end(&w);
+    ec_json_obj_end(&w);
+    return ec_json_writer_finish(&w) < 0 ? -1 : 0;
+}
+
+/* hw_register_lookup ------------------------------------------------------
+ * args:   { "module": "uart0" }
+ *     or: { "module": "uart0", "register": "CTRL" }
+ * result: full register + bitfield details                                */
+
+static int hw_register_lookup_fn(const char *args_json,
+                                 char *out_json, size_t out_size)
+{
+    char mod_name[64];
+    if (ec_json_find_string(args_json, strlen(args_json),
+                            "module", mod_name, sizeof(mod_name)) < 0) {
+        snprintf(out_json, out_size, "{\"error\":\"missing module\"}");
+        return -1;
+    }
+
+    /* Optional: filter to a single register */
+    char reg_filter[64] = {0};
+    ec_json_find_string(args_json, strlen(args_json),
+                        "register", reg_filter, sizeof(reg_filter));
+
+    /* Find the module */
+    const ec_hw_module_t *mod = NULL;
+    for (size_t i = 0; i < EC_HW_MODULE_COUNT; i++) {
+        if (strcmp(EC_HW_MODULES[i].name, mod_name) == 0) {
+            mod = &EC_HW_MODULES[i];
+            break;
+        }
+    }
+    if (!mod) {
+        snprintf(out_json, out_size,
+                 "{\"error\":\"unknown module '%s'\"}", mod_name);
+        return -1;
+    }
+
+    ec_json_writer_t w;
+    ec_json_writer_init(&w, out_json, out_size);
+    ec_json_obj_start(&w);
+    ec_json_add_string(&w, "module", mod->name);
+
+    char addr_str[16];
+    snprintf(addr_str, sizeof(addr_str), "0x%08x", (unsigned)mod->base_addr);
+    ec_json_add_string(&w, "base_addr", addr_str);
+    ec_json_add_string(&w, "description", mod->description);
+    if (mod->notes)
+        ec_json_add_string(&w, "notes", mod->notes);
+
+    ec_json_array_start(&w, "registers");
+
+    for (size_t r = 0; r < mod->num_registers; r++) {
+        const ec_hw_register_t *reg = &mod->registers[r];
+
+        /* If a register filter is specified, skip non-matching registers */
+        if (reg_filter[0] && strcmp(reg->name, reg_filter) != 0)
+            continue;
+
+        ec_json_array_obj_start(&w);
+        ec_json_add_string(&w, "name", reg->name);
+
+        char off_str[16];
+        snprintf(off_str, sizeof(off_str), "0x%02x", (unsigned)reg->offset);
+        ec_json_add_string(&w, "offset", off_str);
+
+        snprintf(addr_str, sizeof(addr_str), "0x%08x",
+                 (unsigned)(mod->base_addr + reg->offset));
+        ec_json_add_string(&w, "address", addr_str);
+
+        char rst_str[16];
+        snprintf(rst_str, sizeof(rst_str), "0x%08x", (unsigned)reg->reset_value);
+        ec_json_add_string(&w, "reset_value", rst_str);
+        ec_json_add_string(&w, "description", reg->description);
+
+        /* Bit fields */
+        if (reg->num_fields > 0) {
+            ec_json_array_start(&w, "fields");
+            for (size_t f = 0; f < reg->num_fields; f++) {
+                const ec_hw_bitfield_t *bf = &reg->fields[f];
+                ec_json_array_obj_start(&w);
+                ec_json_add_string(&w, "name", bf->name);
+
+                char bits[16];
+                if (bf->hi == bf->lo)
+                    snprintf(bits, sizeof(bits), "%u", bf->hi);
+                else
+                    snprintf(bits, sizeof(bits), "%u:%u", bf->hi, bf->lo);
+                ec_json_add_string(&w, "bits", bits);
+                ec_json_add_string(&w, "access", bf->access);
+                ec_json_add_string(&w, "description", bf->description);
+                ec_json_obj_end(&w);
+            }
+            ec_json_array_end(&w);
+        }
+
+        ec_json_obj_end(&w);
+    }
+
+    ec_json_array_end(&w);
+    ec_json_obj_end(&w);
+    return ec_json_writer_finish(&w) < 0 ? -1 : 0;
+}
+
+static const ec_tool_def_t s_datasheet_tools[] = {
+    {
+        .name        = "hw_module_list",
+        .description =
+            "List all hardware modules on this device. Returns module names, "
+            "base addresses, and descriptions. Call this first to discover "
+            "what hardware is available.",
+        .parameters_schema =
+            "{"
+              "\"type\":\"object\","
+              "\"properties\":{},"
+              "\"required\":[]"
+            "}",
+        .fn = hw_module_list_fn,
+    },
+    {
+        .name        = "hw_register_lookup",
+        .description =
+            "Look up registers and bit-field definitions for a hardware module. "
+            "Returns register names, offsets, absolute addresses, reset values, "
+            "bit-field ranges, access types, and descriptions. Optionally filter "
+            "to a single register by name.",
+        .parameters_schema =
+            "{"
+              "\"type\":\"object\","
+              "\"properties\":{"
+                "\"module\":{"
+                  "\"type\":\"string\","
+                  "\"description\":\"Module name, e.g. 'uart0', 'gpio'\""
+                "},"
+                "\"register\":{"
+                  "\"type\":\"string\","
+                  "\"description\":"
+                    "\"Optional register name filter, e.g. 'CTRL', 'STATUS'\""
+                "}"
+              "},"
+              "\"required\":[\"module\"]"
+            "}",
+        .fn = hw_register_lookup_fn,
     },
 };
 
@@ -486,6 +681,20 @@ static const ec_skill_t s_skill_table[] = {
             "Read a register to inspect hardware state; write to configure it.",
         .tools     = s_hw_tools,
         .num_tools = sizeof(s_hw_tools) / sizeof(s_hw_tools[0]),
+    },
+    /* ---------------------------------------------------------------------- */
+    {
+        .name        = "hw_datasheet",
+        .description = "Look up hardware module register maps and bit fields.",
+        .system_context =
+            "You have access to this device's hardware datasheet via tools.\n"
+            "Use hw_module_list to discover available hardware modules.\n"
+            "Use hw_register_lookup to get register addresses, bit-field "
+            "definitions, access types, and programming notes for a module.\n"
+            "Always look up register details before reading or writing "
+            "hardware registers — do not guess addresses or bit layouts.",
+        .tools     = s_datasheet_tools,
+        .num_tools = sizeof(s_datasheet_tools) / sizeof(s_datasheet_tools[0]),
     },
     /* ---------------------------------------------------------------------- */
     {

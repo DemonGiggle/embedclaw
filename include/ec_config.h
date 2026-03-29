@@ -23,7 +23,7 @@
 #define EC_CONFIG_MODEL        "gpt-4o"
 
 /* HTTP layer buffers */
-#define EC_CONFIG_REQUEST_BUF       4096   /* outgoing JSON request body */
+#define EC_CONFIG_REQUEST_BUF       8192   /* outgoing JSON request body */
 #define EC_CONFIG_RESPONSE_BUF      8192   /* raw HTTP response body */
 
 /* API response buffers */

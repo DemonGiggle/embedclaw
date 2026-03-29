@@ -18,6 +18,7 @@ The FreeRTOS backend remains stubbed, pending target hardware bring-up.
 | Tool framework      | `ec_tool.c/h`                  | Done (registry + dispatcher)        |
 | Skill system        | `ec_skill.c/h`, `ec_skill_table.c` | Done (compile-time skill bundles) |
 | HW register skill   | `ec_skill_table.c`             | Done (read/write, POSIX mock array) |
+| HW datasheet skill  | `ec_skill_table.c`, `ec_hw_datasheet.h` | Done (module list, register lookup) |
 | Web browsing skill  | `ec_skill_table.c`             | Done (web_search via Brave, web_fetch) |
 | Session layer       | `ec_session.c/h`               | Done (ring buffer, tool_call support) |
 | Agent loop          | `ec_agent.c/h`                 | Done (multi-iteration tool dispatch) |
@@ -25,7 +26,7 @@ The FreeRTOS backend remains stubbed, pending target hardware bring-up.
 | UART I/O backend    | `ec_io_uart.c`                 | Done (stdin/stdout on POSIX)        |
 | Telnet I/O backend  | `ec_io_telnet.c`               | Done (TCP server on configurable port) |
 | Debug logging       | `ec_log.c/h`                   | Done (EC_DEBUG=1 on POSIX, compile-time on FreeRTOS) |
-| E2E test suite      | `tests/test_e2e.c`             | 10 tests passing (mock HTTP layer)  |
+| E2E test suite      | `tests/test_e2e.c`             | 14 tests passing (mock HTTP layer)  |
 | Demo application    | `main.c`                       | POSIX CLI demo with env config      |
 
 ### Remaining Work
@@ -117,7 +118,20 @@ dispatches, and agent loop iterations. All output goes to stderr.
 
 ---
 
-### Phase 10 — FreeRTOS Socket Backend (TODO)
+### Phase 10 — Hardware Datasheet Lookup ✅
+
+**Completed.** `hw_module_list` and `hw_register_lookup` tools let the LLM
+query the ASIC register map on demand. Register descriptors are compile-time
+const tables defined in `ec_hw_datasheet.h` structs. Each ASIC has its own
+header (e.g., `ec_hw_example_asic.h` with UART0 and GPIO modules). The
+`hw_datasheet` skill system context instructs the LLM to always look up
+register details before reading/writing — no guessing addresses or bit layouts.
+
+---
+
+### Phase 11 — FreeRTOS Socket Backend (TODO)
+
+(Previously Phase 10.)
 
 **Goal**: Replace POSIX socket stubs with real FreeRTOS+TCP calls.
 
@@ -136,7 +150,7 @@ Tasks:
 
 ---
 
-### Phase 11 — Production Hardening (TODO)
+### Phase 12 — Production Hardening (TODO)
 
 Tasks:
 1. **Hardware register address allowlist**: Restrict valid address ranges in

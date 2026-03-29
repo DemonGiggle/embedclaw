@@ -107,6 +107,49 @@
         "}]}," \
       "\"finish_reason\":\"tool_calls\"}]}"
 
+/* Single tool call — hw_module_list */
+#define RESP_MODULE_LIST(call_id) \
+    "{\"choices\":[{" \
+      "\"message\":{\"role\":\"assistant\",\"content\":null," \
+        "\"tool_calls\":[{" \
+          "\"id\":\"" call_id "\"," \
+          "\"type\":\"function\"," \
+          "\"function\":{" \
+            "\"name\":\"hw_module_list\"," \
+            "\"arguments\":\"{}\"" \
+          "}" \
+        "}]}," \
+      "\"finish_reason\":\"tool_calls\"}]}"
+
+/* Single tool call — hw_register_lookup */
+#define RESP_REG_LOOKUP(call_id, module) \
+    "{\"choices\":[{" \
+      "\"message\":{\"role\":\"assistant\",\"content\":null," \
+        "\"tool_calls\":[{" \
+          "\"id\":\"" call_id "\"," \
+          "\"type\":\"function\"," \
+          "\"function\":{" \
+            "\"name\":\"hw_register_lookup\"," \
+            "\"arguments\":\"{\\\"module\\\":\\\"" module "\\\"}\"" \
+          "}" \
+        "}]}," \
+      "\"finish_reason\":\"tool_calls\"}]}"
+
+/* Single tool call — hw_register_lookup with register filter */
+#define RESP_REG_LOOKUP_FILTER(call_id, module, reg) \
+    "{\"choices\":[{" \
+      "\"message\":{\"role\":\"assistant\",\"content\":null," \
+        "\"tool_calls\":[{" \
+          "\"id\":\"" call_id "\"," \
+          "\"type\":\"function\"," \
+          "\"function\":{" \
+            "\"name\":\"hw_register_lookup\"," \
+            "\"arguments\":\"{\\\"module\\\":\\\"" module "\\\"," \
+                            "\\\"register\\\":\\\"" reg "\\\"}\"" \
+          "}" \
+        "}]}," \
+      "\"finish_reason\":\"tool_calls\"}]}"
+
 /* Unknown tool call */
 #define RESP_UNKNOWN_TOOL(call_id) \
     "{\"choices\":[{" \
@@ -467,6 +510,143 @@ static int test_web_search_api_error(void)
 }
 
 /* =========================================================================
+ * Test 11 — hw_module_list returns module names and base addresses
+ *
+ * LLM calls hw_module_list → tool returns module list from datasheet →
+ * LLM summarises.  The tool result must contain "uart0" and "gpio".
+ * ========================================================================= */
+static int test_hw_module_list(void)
+{
+    setup();
+
+    mock_http_queue(RESP_MODULE_LIST("call_ml1"), 200);
+    mock_http_queue(RESP_TEXT("This device has UART0 and GPIO modules."), 200);
+
+    char response[EC_CONFIG_CONTENT_BUF];
+    int rc = ec_agent_run_turn(&s_agent,
+                               "what hardware modules are available?",
+                               response, sizeof(response));
+
+    ASSERT_EQ(rc, 0, "run_turn should succeed");
+    ASSERT_EQ(mock_http_call_count(), 2, "two HTTP calls");
+
+    /* Verify the tool result fed back to LLM contains module info */
+    const char *req2 = mock_http_req_body(1);
+    ASSERT(req2 != NULL, "second request body captured");
+    ASSERT_STR(req2, "\"role\":\"tool\"", "tool result sent to LLM");
+    ASSERT_STR(req2, "uart0", "tool result contains uart0 module");
+    ASSERT_STR(req2, "gpio", "tool result contains gpio module");
+    ASSERT_STR(req2, "0x40001000", "tool result contains uart0 base address");
+    ASSERT_STR(req2, "0x40002000", "tool result contains gpio base address");
+    return 1;
+}
+
+/* =========================================================================
+ * Test 12 — hw_register_lookup returns register details for a module
+ *
+ * LLM calls hw_register_lookup(module="uart0") → tool returns all registers
+ * and bit fields → LLM responds.
+ * ========================================================================= */
+static int test_hw_register_lookup(void)
+{
+    setup();
+
+    mock_http_queue(RESP_REG_LOOKUP("call_rl1", "uart0"), 200);
+    mock_http_queue(RESP_TEXT("UART0 has CTRL, STATUS, and DATA registers."), 200);
+
+    char response[EC_CONFIG_CONTENT_BUF];
+    int rc = ec_agent_run_turn(&s_agent,
+                               "show me the UART0 registers",
+                               response, sizeof(response));
+
+    ASSERT_EQ(rc, 0, "run_turn should succeed");
+    ASSERT_EQ(mock_http_call_count(), 2, "two HTTP calls");
+
+    const char *req2 = mock_http_req_body(1);
+    ASSERT(req2 != NULL, "second request body captured");
+    ASSERT_STR(req2, "\"role\":\"tool\"", "tool result sent to LLM");
+    ASSERT_STR(req2, "CTRL", "tool result contains CTRL register");
+    ASSERT_STR(req2, "STATUS", "tool result contains STATUS register");
+    ASSERT_STR(req2, "DATA", "tool result contains DATA register");
+    ASSERT_STR(req2, "BAUD_DIV", "tool result contains bit field name");
+    ASSERT_STR(req2, "0x40001000", "tool result contains base address");
+    return 1;
+}
+
+/* =========================================================================
+ * Test 13 — hw_register_lookup with register filter
+ *
+ * LLM calls hw_register_lookup(module="uart0", register="CTRL") → only
+ * the CTRL register is returned, not STATUS or DATA.
+ * ========================================================================= */
+static int test_hw_register_lookup_filter(void)
+{
+    setup();
+
+    mock_http_queue(RESP_REG_LOOKUP_FILTER("call_rf1", "uart0", "CTRL"), 200);
+    mock_http_queue(RESP_TEXT("CTRL register has EN, TX_EN, RX_EN, etc."), 200);
+
+    char response[EC_CONFIG_CONTENT_BUF];
+    int rc = ec_agent_run_turn(&s_agent,
+                               "show me the UART0 CTRL register",
+                               response, sizeof(response));
+
+    ASSERT_EQ(rc, 0, "run_turn should succeed");
+    ASSERT_EQ(mock_http_call_count(), 2, "two HTTP calls");
+
+    const char *req2 = mock_http_req_body(1);
+    ASSERT(req2 != NULL, "second request body captured");
+    ASSERT_STR(req2, "CTRL", "tool result contains CTRL register");
+    ASSERT_STR(req2, "EN", "tool result contains EN bit field");
+    ASSERT_STR(req2, "BAUD_DIV", "tool result contains BAUD_DIV bit field");
+
+    /* STATUS and DATA should NOT appear since we filtered to CTRL only */
+    ASSERT(strstr(req2, "TX_FULL") == NULL,
+           "tool result should NOT contain STATUS fields");
+    return 1;
+}
+
+/* =========================================================================
+ * Test 14 — hw_register_lookup with unknown module
+ *
+ * LLM calls hw_register_lookup(module="nonexistent") → tool returns error →
+ * agent handles gracefully.
+ * ========================================================================= */
+static int test_hw_register_lookup_unknown(void)
+{
+    setup();
+
+    /* Use a custom response to call with a module that doesn't exist */
+    mock_http_queue(
+        "{\"choices\":[{"
+          "\"message\":{\"role\":\"assistant\",\"content\":null,"
+            "\"tool_calls\":[{"
+              "\"id\":\"call_bad_mod\","
+              "\"type\":\"function\","
+              "\"function\":{"
+                "\"name\":\"hw_register_lookup\","
+                "\"arguments\":\"{\\\"module\\\":\\\"nonexistent\\\"}\""
+              "}"
+            "}]},"
+          "\"finish_reason\":\"tool_calls\"}]}", 200);
+    mock_http_queue(RESP_TEXT("That module does not exist on this device."), 200);
+
+    char response[EC_CONFIG_CONTENT_BUF];
+    int rc = ec_agent_run_turn(&s_agent,
+                               "look up nonexistent module",
+                               response, sizeof(response));
+
+    ASSERT_EQ(rc, 0, "agent should handle unknown module gracefully");
+    ASSERT_EQ(mock_http_call_count(), 2, "two HTTP calls");
+
+    const char *req2 = mock_http_req_body(1);
+    ASSERT(req2 != NULL, "second request body captured");
+    ASSERT_STR(req2, "error", "tool result contains error");
+    ASSERT_STR(req2, "nonexistent", "error mentions the unknown module name");
+    return 1;
+}
+
+/* =========================================================================
  * Main
  * ========================================================================= */
 
@@ -487,6 +667,10 @@ int main(void)
     RUN_TEST(test_web_search_dispatch);
     RUN_TEST(test_web_fetch_dispatch);
     RUN_TEST(test_web_search_api_error);
+    RUN_TEST(test_hw_module_list);
+    RUN_TEST(test_hw_register_lookup);
+    RUN_TEST(test_hw_register_lookup_filter);
+    RUN_TEST(test_hw_register_lookup_unknown);
 
     PRINT_RESULTS();
     return (_tests_pass == _tests_run) ? 0 : 1;

@@ -12,7 +12,7 @@ It is the embedded counterpart to OpenClaw — same agentic loop, same OpenAI to
 - **TLS/HTTPS** — mbedTLS integration with embedded CA bundle; no filesystem required
 - **Agentic loop** — dispatches tool calls from the LLM, feeds results back, and loops until a final text response
 - **Skill system** — compile-time capability bundles; each skill contributes tools and LLM system context
-- **Built-in tools** — hardware register read/write, web search (Brave API), and web page fetch
+- **Built-in tools** — hardware register read/write, register map lookup, web search (Brave API), and web page fetch
 - **Extensible tool framework** — register new tools with a name, JSON Schema, and a C handler function
 - **Persistent conversation** — session history survives UART/Telnet reconnects across the device lifetime
 - **Transport-agnostic I/O** — swap between UART and Telnet (or add new transports) without touching the agent logic
@@ -166,7 +166,7 @@ All limits are compile-time constants in `include/ec_config.h`:
 | `EC_CONFIG_USE_TLS` | `1` | Enable TLS (set to 0 for plain HTTP) |
 | `EC_CONFIG_MODEL` | `gpt-4o` | Model name |
 | **HTTP / buffers** | | |
-| `EC_CONFIG_REQUEST_BUF` | `4096` | Outgoing JSON request body (bytes) |
+| `EC_CONFIG_REQUEST_BUF` | `8192` | Outgoing JSON request body (bytes) |
 | `EC_CONFIG_RESPONSE_BUF` | `8192` | Raw HTTP response body (bytes) |
 | `EC_CONFIG_CONTENT_BUF` | `2048` | Extracted LLM text response (bytes) |
 | `EC_CONFIG_TOOL_ARG_BUF` | `256` | Per-tool-call arguments JSON (bytes) |
@@ -247,6 +247,63 @@ static const ec_io_ops_t my_io_ops = {
 
 ec_io_init(&my_io_ops);
 ```
+
+---
+
+## Hardware datasheet tools
+
+Two tools are registered via the `hw_datasheet` skill, giving the LLM on-demand access to the device's register map without bloating the system prompt:
+
+**`hw_module_list`** — list all hardware modules on the device.
+```
+arguments: {}
+result:    { "modules": [ { "name": "uart0", "base_addr": "0x40001000",
+                             "description": "UART serial port 0." }, ... ] }
+```
+
+**`hw_register_lookup`** — look up registers and bit-field definitions for a module.
+```
+arguments: { "module": "uart0" }
+   — or —  { "module": "uart0", "register": "CTRL" }
+result:    { "module": "uart0", "base_addr": "0x40001000",
+             "registers": [ { "name": "CTRL", "offset": "0x00",
+               "address": "0x40001000", "reset_value": "0x00000000",
+               "fields": [ { "name": "EN", "bits": "0", "access": "RW",
+                              "description": "UART enable." }, ... ] } ] }
+```
+
+### Defining your ASIC's register map
+
+Create a header file using the `ec_hw_datasheet.h` data structures. See `include/ec_hw_example_asic.h` for the pattern:
+
+```c
+#include "ec_hw_datasheet.h"
+
+static const ec_hw_bitfield_t s_my_ctrl_fields[] = {
+    { "EN", 0, 0, "RW", "Module enable" },
+    /* ... */
+};
+
+static const ec_hw_register_t s_my_regs[] = {
+    { .name = "CTRL", .offset = 0x00, .reset_value = 0,
+      .description = "Control register",
+      .fields = s_my_ctrl_fields,
+      .num_fields = sizeof(s_my_ctrl_fields) / sizeof(s_my_ctrl_fields[0]) },
+};
+
+static const ec_hw_module_t s_my_modules[] = {
+    { .name = "my_periph", .base_addr = 0x40010000,
+      .description = "My peripheral",
+      .notes = "Programming sequence: ...",
+      .registers = s_my_regs,
+      .num_registers = sizeof(s_my_regs) / sizeof(s_my_regs[0]) },
+};
+
+const ec_hw_module_t *EC_HW_MODULES      = s_my_modules;
+const size_t          EC_HW_MODULE_COUNT = sizeof(s_my_modules) / sizeof(s_my_modules[0]);
+```
+
+Then include your header from `ec_skill_table.c` in place of `ec_hw_example_asic.h`.
 
 ---
 

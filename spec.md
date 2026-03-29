@@ -231,6 +231,13 @@ typedef struct {
   On POSIX: 16-register mock array at base `0x40000000`.
   On FreeRTOS: direct memory-mapped register access.
 
+- **`hw_datasheet`** — `hw_module_list` and `hw_register_lookup` tools.
+  Provides on-demand access to the device's register map so the LLM can
+  discover modules, register addresses, bit-field definitions, access types,
+  and programming notes without a large system prompt. The register map is
+  defined as compile-time const tables via `ec_hw_datasheet.h` data structures.
+  Each ASIC has its own header (e.g., `ec_hw_example_asic.h`).
+
 - **`web_browsing`** — `web_search` (Brave Search API) and `web_fetch` (HTTP
   GET). The Brave API key is configured via `EC_BRAVE_API_KEY` env (POSIX) or
   `EC_CONFIG_BRAVE_API_KEY` (compile-time).
@@ -346,7 +353,7 @@ socket/TLS stack.
 
 | Constant                      | Default | Purpose                              |
 |-------------------------------|---------|--------------------------------------|
-| `EC_CONFIG_REQUEST_BUF`       | 4096    | HTTP request body (outgoing JSON)    |
+| `EC_CONFIG_REQUEST_BUF`       | 8192    | HTTP request body (outgoing JSON)    |
 | `EC_CONFIG_RESPONSE_BUF`      | 8192    | HTTP response body (incoming JSON)   |
 | `EC_CONFIG_CONTENT_BUF`       | 2048    | Extracted LLM text content           |
 | `EC_CONFIG_TOOL_ARG_BUF`      | 256     | Tool call arguments JSON             |
