@@ -189,6 +189,8 @@ All limits are compile-time constants in `include/ec_config.h`:
 | `EC_CONFIG_BRAVE_API_KEY` | `BSA-CHANGE-ME` | Brave Search subscription token |
 | `EC_CONFIG_WEB_FETCH_MAX` | `4096` | Max bytes returned by web_fetch |
 | `EC_CONFIG_WEB_SEARCH_COUNT` | `5` | Number of search results to return |
+| **Debug** | | |
+| `EC_CONFIG_DEBUG_LOG` | `0` | Enable debug logging (FreeRTOS; POSIX uses `EC_DEBUG` env) |
 
 ---
 
@@ -290,9 +292,45 @@ On POSIX builds, a 16-register mock array at base `0x40000000` is used instead o
 
 ---
 
+## Debug logging
+
+Set `EC_DEBUG=1` to trace the full agent loop — every LLM request/response JSON body, tool dispatches with arguments and results, and iteration counts. All output goes to stderr:
+
+```sh
+EC_DEBUG=1 ./build/embedclaw_demo 2>debug.log
+```
+
+On FreeRTOS, enable at compile time by setting `EC_CONFIG_DEBUG_LOG=1` in `ec_config.h`.
+
+Example output:
+
+```
+[EC_DEBUG] === agent turn start: "read register 0x40000000"
+[EC_DEBUG] --- iteration 1/8 ---
+[EC_DEBUG] sending 2 messages to LLM
+[EC_DEBUG] >>> LLM request: POST api.openai.com:443/v1/chat/completions
+[EC_DEBUG] --- request body (1468 bytes) ---
+{"model":"gpt-4o","messages":[...], "tools":[...]}
+[EC_DEBUG] --- end request body ---
+[EC_DEBUG] <<< LLM response: HTTP 200
+[EC_DEBUG] --- response body (223 bytes) ---
+{"choices":[{"message":{"tool_calls":[...]},"finish_reason":"tool_calls"}]}
+[EC_DEBUG] --- end response body ---
+[EC_DEBUG] LLM requested 1 tool call(s)
+[EC_DEBUG] dispatching tool [0]: hw_register_read (id=call_001)
+[EC_DEBUG]   args: {"address":"0x40000000"}
+[EC_DEBUG]   result: {"address":"0x40000000","value":"0x00000000"}
+[EC_DEBUG] --- iteration 2/8 ---
+[EC_DEBUG] ...
+[EC_DEBUG] === agent turn complete (iter 2) ===
+```
+
+---
+
 ## Roadmap
 
 - [x] TLS/HTTPS via mbedTLS (POSIX, with embedded CA bundle)
+- [x] Debug logging (`EC_DEBUG=1`) for LLM request/response inspection
 - [ ] FreeRTOS+TCP socket backend (`ec_socket.c`)
 - [ ] FreeRTOS UART and Telnet I/O backends
 - [ ] FreeRTOS TLS support (socket layer already TLS-aware)

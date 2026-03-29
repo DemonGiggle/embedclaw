@@ -7,8 +7,8 @@ EmbedClaw is an embedded AI agent runtime for FreeRTOS. It runs on constrained
 hardware and acts as an intelligent automation layer: it accepts user input over
 a serial interface (UART, Telnet, or similar), forwards it to a remote
 OpenAI-compatible LLM, and executes tool calls returned by the LLM — such as
-reading and writing hardware registers — before returning the final answer to
-the user.
+reading and writing hardware registers or searching the web — before returning
+the final answer to the user.
 
 It is the embedded counterpart to OpenClaw: same agentic loop, same tool-call
 protocol, different execution environment.
@@ -21,16 +21,20 @@ protocol, different execution environment.
   completion in a single task. All I/O is blocking with timeouts.
 - **No dynamic allocation in hot paths**: All buffers are caller-provided or
   statically declared. No `malloc` in the agent or tool layers.
-- **No external dependencies beyond FreeRTOS+TCP**: JSON, HTTP, and the agent
-  loop are all built in. mbedTLS is an optional add-on for TLS.
+- **Minimal external dependencies**: JSON, HTTP, and the agent loop are all
+  built in. mbedTLS is the only third-party dependency (for TLS/HTTPS).
 - **OpenAI-compatible protocol**: Tool calls use the standard OpenAI
   `tool_calls` JSON format. No custom protocol invented.
-- **Extensible I/O and tool layers**: New input sources and new tools can be
-  added without touching the agent core.
+- **Extensible via skills**: New capabilities are added as skills — compile-time
+  bundles that contribute tools and LLM system context.
+- **Extensible I/O**: New input sources can be added without touching the agent
+  core.
 - **No streaming**: Responses are buffered in full before processing. Streaming
   (SSE) is deferred — tool calls cannot be dispatched until the full response
   is received anyway, so streaming adds complexity with no benefit to the
   agentic loop.
+- **Embedded CA bundle**: TLS certificate validation uses a compiled-in CA
+  bundle — no filesystem required (suitable for FreeRTOS/baremetal).
 
 ---
 
@@ -59,19 +63,28 @@ protocol, different execution environment.
 │  1. Append user message to history                  │
 │  2. Send full history to LLM                        │
 │  3. Receive response                                │
-│  4. If tool_calls → dispatch to tool layer          │
-│     append tool results → go to 2                  │
+│  4. If tool_calls → dispatch to skill/tool layer    │
+│     append tool results → go to 2                   │
 │  5. If text response → send to user via I/O layer   │
+│                                                     │
+│  Debug logging via ec_log (EC_DEBUG=1 / compile)    │
 └──────────┬──────────────────────┬───────────────────┘
            │                      │
            ▼                      ▼
 ┌────────────────────┐  ┌─────────────────────────────┐
-│  Chat API Layer    │  │  Tool Framework  (ec_tool)   │
-│  (ec_api)          │  │  Tool registry + dispatcher  │
-│  JSON build/parse  │  │  Built-in: HW register R/W   │
-│  /v1/chat/complete │  │  Extensible: add new tools   │
-└────────┬───────────┘  └─────────────────────────────┘
-         │
+│  Chat API Layer    │  │  Skill System  (ec_skill)    │
+│  (ec_api)          │  │  ┌────────────────────────┐  │
+│  JSON build/parse  │  │  │ hw_register_control    │  │
+│  /v1/chat/complete │  │  │  hw_register_read/     │  │
+│                    │  │  │  hw_register_write     │  │
+│                    │  │  ├────────────────────────┤  │
+│                    │  │  │ web_browsing           │  │
+│                    │  │  │  web_search (Brave)    │  │
+│                    │  │  │  web_fetch (HTTP GET)  │  │
+│                    │  │  └────────────────────────┘  │
+└────────┬───────────┘  └───────────┬─────────────────┘
+         │                          │ (web tools also use HTTP)
+         ├──────────────────────────┘
          ▼
 ┌─────────────────────────────────────────────────────┐
 │  HTTP Client  (ec_http)                             │
@@ -81,6 +94,7 @@ protocol, different execution environment.
                      ▼
 ┌─────────────────────────────────────────────────────┐
 │  Socket Abstraction  (ec_socket)                    │
+│  TCP + optional TLS (mbedTLS, embedded CA bundle)   │
 │  FreeRTOS+TCP backend  /  POSIX shim (host testing) │
 └─────────────────────────────────────────────────────┘
 ```
@@ -91,12 +105,12 @@ protocol, different execution environment.
 
 ### 1. Socket Abstraction (`ec_socket.h` / `ec_socket.c`)
 
-Wraps the platform TCP API into four functions:
+Wraps the platform TCP API and optional TLS into four functions:
 
 ```c
-ec_socket_t *ec_socket_connect(const char *host, uint16_t port);
-int          ec_socket_send(ec_socket_t *s, const char *data, size_t len);
-int          ec_socket_recv(ec_socket_t *s, char *buf, size_t len, int timeout_ms);
+ec_socket_t *ec_socket_connect(const char *host, uint16_t port, int use_tls);
+int          ec_socket_send(ec_socket_t *s, const void *data, size_t len);
+int          ec_socket_recv(ec_socket_t *s, void *buf, size_t len, uint32_t timeout_ms);
 void         ec_socket_close(ec_socket_t *s);
 ```
 
@@ -104,13 +118,22 @@ Two backends selected at compile time via `EC_PLATFORM`:
 - `POSIX` — standard BSD sockets, used for host-side development and testing.
 - `FREERTOS` — FreeRTOS+TCP sockets (currently stubbed; implementation pending).
 
+**TLS support** (when `EC_CONFIG_USE_TLS=1`):
+- mbedTLS v3.6.5 integrated as a git submodule (`third_party/mbedtls`).
+- TLS is transparent to callers — `ec_socket_connect()` performs the handshake
+  when `use_tls=1`, and `send`/`recv` route through `mbedtls_ssl_write`/`read`.
+- Certificate validation uses an embedded CA bundle (`ec_cacerts.h`) — no
+  filesystem paths. Suitable for FreeRTOS/baremetal targets.
+- SNI (Server Name Indication) is set for virtual hosting support.
+
 ### 2. HTTP Client (`ec_http.h` / `ec_http.c`)
 
 Minimal HTTP/1.1 client. Supports:
-- `POST` with arbitrary headers and body
+- `POST` and `GET` with arbitrary headers and body
 - Response status line and header parsing
 - Chunked transfer-encoding (in-place decode)
 - Caller-provided request and response buffers (no malloc)
+- `use_tls` field in request struct — passed through to `ec_socket_connect()`
 
 Non-streaming only. The full response body is buffered before returning.
 
@@ -120,14 +143,10 @@ Purpose-built for the OpenAI message format. No malloc, no DOM.
 
 - **Builder** (`ec_json_writer_t`): Writes JSON tokens into a fixed-size buffer.
   Helpers: `ec_json_obj_start/end`, `ec_json_array_start/end`,
-  `ec_json_add_string`, `ec_json_add_int`, etc.
+  `ec_json_add_string`, `ec_json_add_int`, `ec_json_add_raw`, etc.
 - **Parser**: Pull-parser that finds values by key path (e.g.,
   `"choices[0].message.content"`, `"choices[0].message.tool_calls[0].id"`).
   Scans the raw JSON string without constructing any in-memory tree.
-
-The parser must be extended to handle the full `tool_calls` array structure
-(function name, arguments object) in addition to the existing string-path
-extraction.
 
 ### 4. Chat API Layer (`ec_api.h` / `ec_api.c`)
 
@@ -149,7 +168,7 @@ typedef struct {
 
 typedef struct {
     ec_api_resp_type_t  type;
-    char                content[EC_CONFIG_RESPONSE_BUF]; /* if MESSAGE */
+    char                content[EC_CONFIG_CONTENT_BUF]; /* if MESSAGE */
     ec_api_tool_call_t  tool_calls[EC_CONFIG_MAX_TOOL_CALLS]; /* if TOOL_CALLS */
     int                 num_tool_calls;
 } ec_api_response_t;
@@ -159,11 +178,14 @@ int ec_api_chat_completion(
     const char             *model,
     const ec_api_message_t *messages,
     size_t                  num_messages,
-    const ec_api_tool_def_t *tools,   /* tool schema sent to LLM */
+    const ec_api_tool_def_t *tools,
     size_t                  num_tools,
     ec_api_response_t      *out
 );
 ```
+
+Debug logging (`ec_log.h`) traces the full request and response JSON bodies
+when enabled.
 
 ### 5. Tool Framework (`ec_tool.h` / `ec_tool.c`)
 
@@ -172,8 +194,8 @@ that receives a JSON arguments string and writes a JSON result string.
 
 ```c
 typedef int (*ec_tool_fn_t)(
-    const char *args_json,   /* raw JSON arguments from LLM */
-    char       *out_json,    /* result JSON to send back */
+    const char *args_json,
+    char       *out_json,
     size_t      out_size
 );
 
@@ -184,28 +206,36 @@ typedef struct {
     ec_tool_fn_t   fn;
 } ec_tool_def_t;
 
-/* Register a tool at startup */
 int ec_tool_register(const ec_tool_def_t *def);
-
-/* Dispatch one tool_call from the LLM */
-int ec_tool_dispatch(const ec_api_tool_call_t *call,
-                     char *out_json, size_t out_size);
-
-/* Return the tool definition table (for passing to ec_api) */
-const ec_tool_def_t *ec_tool_table(size_t *count);
+int ec_tool_dispatch(const ec_api_tool_call_t *call, char *out_json, size_t out_size);
+const ec_api_tool_def_t *ec_tool_api_defs(size_t *count);
 ```
 
-**Built-in tools (initial set):**
+### 6. Skill System (`ec_skill.h` / `ec_skill.c` / `ec_skill_table.c`)
 
-- `hw_register_read` — reads a hardware register at a given address.
-  Arguments: `{ "address": <uint32 hex string> }`
-  Result: `{ "value": <uint32 hex string> }`
+Skills are compile-time capability bundles. Each skill contributes:
+- One or more tools (registered via `ec_tool_register`)
+- A system prompt fragment (appended to the LLM system message)
 
-- `hw_register_write` — writes a value to a hardware register.
-  Arguments: `{ "address": <uint32 hex string>, "value": <uint32 hex string> }`
-  Result: `{ "ok": true }` or error
+```c
+typedef struct {
+    const char *name;
+    void      (*init)(void);           /* register tools */
+    const char *system_context;        /* appended to system prompt */
+} ec_skill_def_t;
+```
 
-### 6. Session Layer (`ec_session.h` / `ec_session.c`)
+**Built-in skills:**
+
+- **`hw_register_control`** — `hw_register_read` and `hw_register_write` tools.
+  On POSIX: 16-register mock array at base `0x40000000`.
+  On FreeRTOS: direct memory-mapped register access.
+
+- **`web_browsing`** — `web_search` (Brave Search API) and `web_fetch` (HTTP
+  GET). The Brave API key is configured via `EC_BRAVE_API_KEY` env (POSIX) or
+  `EC_CONFIG_BRAVE_API_KEY` (compile-time).
+
+### 7. Session Layer (`ec_session.h` / `ec_session.c`)
 
 Maintains conversation history across user turns. The history is a fixed-size
 ring of `ec_api_message_t` entries (role + content). When full, oldest entries
@@ -218,50 +248,46 @@ UART/Telnet reconnect). A user command (e.g., `/reset`) can clear it explicitly.
 
 ```c
 void ec_session_init(ec_session_t *s, const char *system_prompt);
-void ec_session_append(ec_session_t *s, const char *role, const char *content);
-void ec_session_append_tool_result(ec_session_t *s,
-                                   const char *tool_call_id,
-                                   const char *content);
+int  ec_session_append(ec_session_t *s, const char *role, const char *content);
+int  ec_session_append_tool_calls(ec_session_t *s,
+                                   const ec_api_tool_call_t *calls, int count);
+int  ec_session_append_tool_result(ec_session_t *s,
+                                    const char *tool_call_id,
+                                    const char *content);
 void ec_session_reset(ec_session_t *s);
-
-/* Get the message array for passing to ec_api */
 const ec_api_message_t *ec_session_messages(const ec_session_t *s, size_t *count);
 ```
 
-### 7. Agent Loop (`ec_agent.h` / `ec_agent.c`)
+### 8. Agent Loop (`ec_agent.h` / `ec_agent.c`)
 
 The core agentic loop. Single-threaded, blocking.
 
 ```
-ec_agent_run_turn(session, user_input):
+ec_agent_run_turn(agent, user_input):
   1. session_append(user, user_input)
-  2. loop:
+  2. loop (max EC_CONFIG_MAX_AGENT_ITERS):
        resp = ec_api_chat_completion(session.messages, tools)
        if resp.type == MESSAGE:
            session_append(assistant, resp.content)
-           io_write(resp.content)
-           break
+           return resp.content
        if resp.type == TOOL_CALLS:
-           session_append(assistant, tool_calls_json)
+           session_append_tool_calls(resp.tool_calls)
            for each call in resp.tool_calls:
                result = ec_tool_dispatch(call)
                session_append_tool_result(call.id, result)
            // loop back: send updated history to LLM
 ```
 
-A configurable iteration limit (`EC_CONFIG_MAX_AGENT_ITERATIONS`) prevents
-infinite loops.
+Debug logging traces each iteration, tool dispatch, and LLM response type.
 
-### 8. I/O Abstraction (`ec_io.h` / `ec_io.c`)
+### 9. I/O Abstraction (`ec_io.h` / `ec_io.c`)
 
 Decouples the agent from the physical input/output channel. New transports
 (UART, Telnet, USB CDC, BLE UART) implement the same interface:
 
 ```c
 typedef struct {
-    /* Read a line of user input into buf (blocking, null-terminated) */
     int (*read_line)(char *buf, size_t size);
-    /* Write a null-terminated string to the user */
     int (*write)(const char *str);
 } ec_io_ops_t;
 
@@ -270,9 +296,27 @@ int  ec_io_read_line(char *buf, size_t size);
 int  ec_io_write(const char *str);
 ```
 
-Initial implementations:
-- **UART** (`ec_io_uart.c`): wraps FreeRTOS UART HAL (or POSIX stdin/stdout on host).
-- **Telnet** (`ec_io_telnet.c`): wraps a raw TCP connection on a fixed port.
+Implementations:
+- **UART** (`ec_io_uart.c`): wraps FreeRTOS UART HAL (or POSIX stdin/stdout).
+- **Telnet** (`ec_io_telnet.c`): TCP server on a fixed port (single connection).
+
+### 10. Debug Logging (`ec_log.h` / `ec_log.c`)
+
+Compile-time/runtime debug tracing. All output goes to stderr.
+
+- On POSIX: enabled at runtime via `EC_DEBUG=1` environment variable.
+- On FreeRTOS: enabled at compile time via `EC_CONFIG_DEBUG_LOG=1`.
+
+Traces:
+- Full JSON request/response bodies for LLM API calls
+- Tool call dispatches: name, arguments, and result
+- Agent loop iterations and turn boundaries
+- API errors
+
+```c
+EC_LOG_DEBUG(fmt, ...)           /* single-line debug message */
+EC_LOG_BODY(label, buf, len)     /* large buffer dump with label */
+```
 
 ---
 
@@ -286,7 +330,15 @@ cmake -DEC_PLATFORM=FREERTOS \
       -DFREERTOS_PATH=... ..        # cross-compile for embedded target
 ```
 
-Output: static library `libembedclaw.a` + optional demo executable.
+Optional flags:
+- `-DEC_ENABLE_TLS=OFF` — disable TLS (removes mbedTLS dependency)
+
+Output: static library `libembedclaw.a`, demo executable `embedclaw_demo`,
+and test executable `embedclaw_tests` (POSIX only).
+
+mbedTLS is included as a git submodule at `third_party/mbedtls`. Tests compile
+with `EC_CONFIG_USE_TLS=0` and use a mock HTTP layer, so they never touch the
+socket/TLS stack.
 
 ---
 
@@ -296,11 +348,16 @@ Output: static library `libembedclaw.a` + optional demo executable.
 |-------------------------------|---------|--------------------------------------|
 | `EC_CONFIG_REQUEST_BUF`       | 4096    | HTTP request body (outgoing JSON)    |
 | `EC_CONFIG_RESPONSE_BUF`      | 8192    | HTTP response body (incoming JSON)   |
+| `EC_CONFIG_CONTENT_BUF`       | 2048    | Extracted LLM text content           |
+| `EC_CONFIG_TOOL_ARG_BUF`      | 256     | Tool call arguments JSON             |
+| `EC_CONFIG_TOOL_RESULT_BUF`   | 4096    | Per-tool result buffer               |
 | `EC_CONFIG_IO_LINE_BUF`       | 256     | One line of user input               |
-| `EC_CONFIG_TOOL_ARG_BUF`      | 512     | Tool call arguments JSON             |
+| `EC_CONFIG_SESSION_CONTENT_BUF`| 512    | Per-message content in history       |
+| `EC_CONFIG_SYSTEM_PROMPT_BUF` | 2048    | Combined system prompt               |
 | `EC_CONFIG_MAX_TOOL_CALLS`    | 4       | Max tool_calls in one LLM response   |
-| `EC_CONFIG_MAX_HISTORY`       | 32      | Max messages in conversation history |
+| `EC_CONFIG_MAX_HISTORY`       | 64      | Max messages in conversation history |
 | `EC_CONFIG_MAX_TOOLS`         | 16      | Max registered tools                 |
+| `EC_CONFIG_MAX_SKILLS`        | 16      | Max registered skills                |
 | `EC_CONFIG_MAX_AGENT_ITERS`   | 8       | Max agentic loop iterations per turn |
 
 ---
@@ -310,8 +367,8 @@ Output: static library `libembedclaw.a` + optional demo executable.
 - **Streaming / SSE**: Deferred. Tool calls cannot be dispatched until the full
   response is received, so streaming offers no benefit to the agentic loop. It
   can be added later as a text-output optimization.
-- **TLS / HTTPS**: The `use_tls` field exists in `ec_api_config_t` but is not
-  wired up. mbedTLS integration is a future task.
 - **Multi-session / multi-user**: Single conversation, single I/O channel.
 - **Tool output streaming back to LLM**: Tool results are always complete JSON
   strings, never partial.
+- **History persistence across power cycles**: Currently in-RAM only. Flash/NVS
+  persistence would require a serialize/deserialize step in `ec_session`.
