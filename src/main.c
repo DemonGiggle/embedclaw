@@ -1,4 +1,4 @@
-#include "ec_api.h"
+#include "ec_model.h"
 #include "ec_agent.h"
 #include "ec_session.h"
 #include "ec_skill.h"
@@ -13,7 +13,7 @@
 static ec_session_t s_session;
 static ec_agent_t   s_agent;
 
-static void run_agent_loop(const ec_api_config_t *config, const char *model)
+static void run_agent_loop(const ec_model_config_t *config, const char *model)
 {
     /* Initialise debug logging (checks EC_DEBUG env on POSIX) */
     ec_log_init();
@@ -69,8 +69,9 @@ void vEmbedClawTask(void *pvParameters)
 {
     (void)pvParameters;
 
-    ec_api_config_t config = {
-        .base_url = EC_CONFIG_API_HOST,
+    ec_model_config_t config = {
+        .provider = EC_MODEL_PROVIDER_OPENAI_CHAT,
+        .host     = EC_CONFIG_API_HOST,
         .port     = EC_CONFIG_API_PORT,
         .api_key  = EC_CONFIG_API_KEY,
         .use_tls  = EC_CONFIG_USE_TLS,
@@ -111,8 +112,9 @@ int main(int argc, char **argv)
         ec_io_init(&ec_io_uart_ops);
     }
 
-    ec_api_config_t config = {
-        .base_url = host,
+    ec_model_config_t config = {
+        .provider = EC_MODEL_PROVIDER_OPENAI_CHAT,
+        .host     = host,
         .port     = (uint16_t)port,
         .api_key  = api_key,
         .use_tls  = EC_CONFIG_USE_TLS,

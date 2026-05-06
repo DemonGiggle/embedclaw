@@ -48,6 +48,7 @@ set(EC_SOURCES
     src/ec_hw_access.c
     src/ec_hw_registry.c
     src/ec_log.c
+    src/ec_model.c
     src/ec_socket.c
     src/ec_http.c
     src/ec_json.c
@@ -90,6 +91,7 @@ if(EC_PLATFORM STREQUAL "POSIX")
         src/ec_hw_access.c
         src/ec_hw_registry.c
         src/ec_log.c
+        src/ec_model.c
         src/ec_json.c
         src/ec_api.c
         src/ec_tool.c

@@ -1,7 +1,7 @@
 #ifndef EC_SESSION_H
 #define EC_SESSION_H
 
-#include "ec_api.h"
+#include "ec_model.h"
 #include "ec_config.h"
 #include <stddef.h>
 
@@ -23,7 +23,7 @@ typedef struct {
     char role[16];
     char content[EC_CONFIG_SESSION_CONTENT_BUF];
     char tool_call_id[EC_CONFIG_TOOL_ID_BUF];
-    ec_api_tool_call_t tool_calls[EC_CONFIG_MAX_TOOL_CALLS];
+    ec_model_tool_call_t tool_calls[EC_CONFIG_MAX_TOOL_CALLS];
     int  num_tool_calls;
 } ec_session_entry_t;
 
@@ -32,7 +32,7 @@ typedef struct {
     ec_session_entry_t entries[EC_CONFIG_MAX_HISTORY];
     int  count;
     /* Scratch buffer rebuilt by ec_session_messages() — do not access directly */
-    ec_api_message_t msg_view[EC_CONFIG_MAX_HISTORY + 1]; /* +1 for system */
+    ec_model_message_t msg_view[EC_CONFIG_MAX_HISTORY + 1]; /* +1 for system */
 } ec_session_t;
 
 /**
@@ -52,7 +52,7 @@ int ec_session_append(ec_session_t *s, const char *role, const char *content);
  * Returns 0 on success, -1 if full.
  */
 int ec_session_append_tool_calls(ec_session_t *s,
-                                  const ec_api_tool_call_t *calls,
+                                  const ec_model_tool_call_t *calls,
                                   int num_calls);
 
 /**
@@ -70,13 +70,13 @@ void ec_session_reset(ec_session_t *s);
 
 /**
  * Return the full message array (system prompt first, then history entries)
- * as an ec_api_message_t array suitable for passing directly to
- * ec_api_chat_completion. count is set to the number of messages.
+ * as an ec_model_message_t array suitable for passing directly to
+ * ec_model_complete. count is set to the number of messages.
  *
  * The returned pointer is into the session's internal msg_view buffer.
  * It remains valid until the next call to ec_session_messages().
  */
-const ec_api_message_t *ec_session_messages(ec_session_t *s, size_t *count);
+const ec_model_message_t *ec_session_messages(ec_session_t *s, size_t *count);
 
 #ifdef __cplusplus
 }

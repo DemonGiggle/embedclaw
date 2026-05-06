@@ -9,6 +9,7 @@ It is the embedded counterpart to OpenClaw — same agentic loop, same OpenAI to
 ## Features
 
 - **OpenAI-compatible** — uses the standard `/v1/chat/completions` API with `tool_calls` JSON format; no custom protocol
+- **Provider adapter boundary** — the agent loop talks to `ec_model`, so model/provider backends can evolve without rewriting the core loop
 - **TLS/HTTPS** — mbedTLS integration with embedded CA bundle; no filesystem required
 - **Agentic loop** — dispatches tool calls from the LLM, feeds results back, and loops until a final text response
 - **Skill system** — compile-time capability bundles; each skill contributes tools and LLM system context
@@ -45,18 +46,23 @@ It is the embedded counterpart to OpenClaw — same agentic loop, same OpenAI to
        │          │
        ▼          ▼
 ┌────────────┐  ┌─────────────────────────────────────┐
-│  Chat API  │  │  Skill System  (ec_skill)            │
-│  (ec_api)  │  │  ┌───────────────────────────────┐   │
-│  JSON +    │  │  │ hw_register_control            │   │
-│  HTTP POST │  │  │  hw_register_read/write        │   │
-│            │  │  ├───────────────────────────────┤   │
-│            │  │  │ web_browsing                   │   │
-│            │  │  │  web_search, web_fetch         │   │
-│            │  │  └───────────────────────────────┘   │
-└─────┬──────┘  └──────────────┬──────────────────────┘
-      │                        │  (web tools also use HTTP)
-      ├────────────────────────┘
-      ▼
+│ Model Adapter │ │  Skill System  (ec_skill)            │
+│   (ec_model)  │ │  ┌───────────────────────────────┐   │
+│ provider      │ │  │ hw_register_control            │   │
+│ selection     │ │  │  hw_register_read/write        │   │
+└─────┬─────────┘ │  ├───────────────────────────────┤   │
+      │           │  │ web_browsing                   │   │
+      │           │  │  web_search, web_fetch         │   │
+      │           │  └───────────────────────────────┘   │
+      │           └──────────────┬──────────────────────┘
+      ▼                          │  (web tools also use HTTP)
+┌─────────────────────────┐      │
+│  Chat API Backend       │◀─────┘
+│    (ec_api)             │
+│  JSON + HTTP POST       │
+└────────────┬────────────┘
+             │
+             ▼
 ┌─────────────────────────┐
 │  HTTP Client (ec_http)  │  HTTP/1.1, chunked transfer encoding
 └────────────┬────────────┘

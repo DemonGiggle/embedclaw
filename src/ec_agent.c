@@ -6,19 +6,19 @@
 #include <stdio.h>
 
 /* Static response buffer — single-threaded, one request in flight at a time */
-static ec_api_response_t s_response;
+static ec_model_response_t s_response;
 
 /* Per-tool result buffer reused across dispatches each turn */
 static char s_tool_result[EC_CONFIG_TOOL_RESULT_BUF];
 
 void ec_agent_init(ec_agent_t *agent,
-                   const ec_api_config_t *api_config,
+                   const ec_model_config_t *model_config,
                    const char *model,
                    ec_session_t *session)
 {
-    agent->api_config = api_config;
-    agent->model      = model;
-    agent->session    = session;
+    agent->model_config = model_config;
+    agent->model        = model;
+    agent->session      = session;
 }
 
 int ec_agent_run_turn(ec_agent_t *agent,
@@ -30,7 +30,7 @@ int ec_agent_run_turn(ec_agent_t *agent,
         return EC_AGENT_ERR_SESSION_FULL;
 
     size_t num_tools = 0;
-    const ec_api_tool_def_t *tools = ec_tool_api_defs(&num_tools);
+    const ec_model_tool_def_t *tools = ec_tool_model_defs(&num_tools);
 
     EC_LOG_DEBUG("=== agent turn start: \"%.*s\"",
                  (int)(strlen(user_input) > 120 ? 120 : strlen(user_input)),
@@ -42,14 +42,14 @@ int ec_agent_run_turn(ec_agent_t *agent,
 
         /* 2. Build message array from session and call LLM */
         size_t num_msgs = 0;
-        const ec_api_message_t *msgs =
+        const ec_model_message_t *msgs =
             ec_session_messages(agent->session, &num_msgs);
 
         EC_LOG_DEBUG("sending %zu messages to LLM", num_msgs);
 
         memset(&s_response, 0, sizeof(s_response));
-        int rc = ec_api_chat_completion(
-            agent->api_config, agent->model,
+        int rc = ec_model_complete(
+            agent->model_config, agent->model,
             msgs, num_msgs,
             tools, num_tools,
             &s_response);
@@ -59,7 +59,7 @@ int ec_agent_run_turn(ec_agent_t *agent,
             return EC_AGENT_ERR_API;
         }
 
-        if (s_response.type == EC_API_RESP_MESSAGE) {
+        if (s_response.type == EC_MODEL_RESP_MESSAGE) {
             /* 3a. Final text response — store in session and return */
             EC_LOG_DEBUG("LLM returned final text (%zu bytes)",
                          strlen(s_response.content));
@@ -82,7 +82,7 @@ int ec_agent_run_turn(ec_agent_t *agent,
             return EC_AGENT_ERR_SESSION_FULL;
 
         for (int j = 0; j < s_response.num_tool_calls; j++) {
-            const ec_api_tool_call_t *tc = &s_response.tool_calls[j];
+            const ec_model_tool_call_t *tc = &s_response.tool_calls[j];
 
             EC_LOG_DEBUG("dispatching tool [%d]: %s (id=%s)", j, tc->name, tc->id);
             EC_LOG_DEBUG("  args: %s", tc->arguments);
