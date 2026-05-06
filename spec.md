@@ -116,7 +116,7 @@ void         ec_socket_close(ec_socket_t *s);
 
 Two backends selected at compile time via `EC_PLATFORM`:
 - `POSIX` — standard BSD sockets, used for host-side development and testing.
-- `FREERTOS` — FreeRTOS+TCP sockets (currently stubbed; implementation pending).
+- `FREERTOS` — FreeRTOS+TCP sockets (targeting FreeRTOS+TCP 10.2.1).
 
 **TLS support** (when `EC_CONFIG_USE_TLS=1`):
 - mbedTLS v3.6.5 integrated as a git submodule (`third_party/mbedtls`).
