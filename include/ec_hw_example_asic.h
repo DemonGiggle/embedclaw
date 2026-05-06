@@ -154,7 +154,7 @@ static const ec_hw_module_t s_example_modules[] = {
     },
 };
 
-/* Wire up the global symbols */
+/* Wire up the global datasheet symbols */
 const ec_hw_module_t *EC_HW_MODULES      = s_example_modules;
 const size_t          EC_HW_MODULE_COUNT =
     sizeof(s_example_modules) / sizeof(s_example_modules[0]);

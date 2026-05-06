@@ -20,6 +20,7 @@
 #include "ec_agent.h"
 #include "ec_session.h"
 #include "ec_skill.h"
+#include "ec_hw_access.h"
 #include "ec_json.h"
 #include "ec_config.h"
 
@@ -647,6 +648,45 @@ static int test_hw_register_lookup_unknown(void)
 }
 
 /* =========================================================================
+ * Test 15 — datasheet-backed hardware access policy allows known accesses
+ * ========================================================================= */
+static int test_hw_access_policy_allows_known_registers(void)
+{
+    char reason[128];
+
+    ASSERT(ec_hw_access_allowed(0x40001000, EC_HW_ACCESS_READ,
+                                reason, sizeof(reason)),
+           "uart0 CTRL should be readable");
+    ASSERT(ec_hw_access_allowed(0x40001000, EC_HW_ACCESS_WRITE,
+                                reason, sizeof(reason)),
+           "uart0 CTRL should be writable");
+    ASSERT(ec_hw_access_allowed(0x40002008, EC_HW_ACCESS_WRITE,
+                                reason, sizeof(reason)),
+           "gpio SET should be writable");
+    return 1;
+}
+
+/* =========================================================================
+ * Test 16 — datasheet-backed hardware access policy rejects denied accesses
+ * ========================================================================= */
+static int test_hw_access_policy_rejects_denied_access(void)
+{
+    char reason[128];
+
+    ASSERT(!ec_hw_access_allowed(0x40002008, EC_HW_ACCESS_READ,
+                                 reason, sizeof(reason)),
+           "gpio SET should be read-denied");
+    ASSERT_STR(reason, "no readable fields",
+               "denial should mention missing readable fields");
+
+    ASSERT(!ec_hw_access_allowed(0x40009999, EC_HW_ACCESS_READ,
+                                 reason, sizeof(reason)),
+           "unknown address should be denied");
+    ASSERT_STR(reason, "not present", "denial should mention datasheet absence");
+    return 1;
+}
+
+/* =========================================================================
  * Main
  * ========================================================================= */
 
@@ -671,6 +711,8 @@ int main(void)
     RUN_TEST(test_hw_register_lookup);
     RUN_TEST(test_hw_register_lookup_filter);
     RUN_TEST(test_hw_register_lookup_unknown);
+    RUN_TEST(test_hw_access_policy_allows_known_registers);
+    RUN_TEST(test_hw_access_policy_rejects_denied_access);
 
     PRINT_RESULTS();
     return (_tests_pass == _tests_run) ? 0 : 1;

@@ -45,6 +45,8 @@ endif()
 
 # Library sources
 set(EC_SOURCES
+    src/ec_hw_access.c
+    src/ec_hw_registry.c
     src/ec_log.c
     src/ec_socket.c
     src/ec_http.c
@@ -85,6 +87,8 @@ target_link_libraries(embedclaw_demo PRIVATE embedclaw)
 # -------------------------------------------------------------------------
 if(EC_PLATFORM STREQUAL "POSIX")
     set(EC_SOURCES_NO_HTTP
+        src/ec_hw_access.c
+        src/ec_hw_registry.c
         src/ec_log.c
         src/ec_json.c
         src/ec_api.c
