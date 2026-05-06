@@ -189,6 +189,8 @@ All limits are compile-time constants in `include/ec_config.h`:
 | **I/O layer** | | |
 | `EC_CONFIG_IO_LINE_BUF` | `256` | User input line buffer (bytes) |
 | `EC_CONFIG_TELNET_PORT` | `2323` | Telnet listen port |
+| `EC_CONFIG_UART_RX_TIMEOUT_MS` | `100` | FreeRTOS UART read poll timeout (ms) |
+| `EC_CONFIG_UART_TX_TIMEOUT_MS` | `1000` | FreeRTOS UART write timeout (ms) |
 | **Web browsing skill** | | |
 | `EC_CONFIG_BRAVE_API_HOST` | `api.search.brave.com` | Brave Search API hostname |
 | `EC_CONFIG_BRAVE_API_PORT` | `443` | Brave Search API port |
@@ -253,6 +255,9 @@ static const ec_io_ops_t my_io_ops = {
 
 ec_io_init(&my_io_ops);
 ```
+
+For the built-in FreeRTOS UART backend, board code provides the actual UART
+transport hooks through `ec_io_uart_set_hal()`, then selects `ec_io_uart_ops`.
 
 ---
 
@@ -395,7 +400,8 @@ Example output:
 - [x] TLS/HTTPS via mbedTLS (POSIX, with embedded CA bundle)
 - [x] Debug logging (`EC_DEBUG=1`) for LLM request/response inspection
 - [x] FreeRTOS+TCP socket backend (`ec_socket.c`)
-- [ ] FreeRTOS UART and Telnet I/O backends
+- [x] FreeRTOS UART backend
+- [ ] FreeRTOS Telnet I/O backend
 - [ ] FreeRTOS TLS support (socket layer already TLS-aware)
 - [ ] Flash/NVS persistence for conversation history across power cycles
 - [x] Hardware register address allowlist for production safety
