@@ -83,7 +83,7 @@ It is the embedded counterpart to OpenClaw — same agentic loop, same OpenAI to
 - CMake ≥ 3.10
 - C99 compiler (GCC or Clang)
 - mbedTLS (included as a git submodule for TLS/HTTPS support)
-- For FreeRTOS builds: FreeRTOS+TCP and a cross-compiler toolchain
+- For FreeRTOS builds: FreeRTOS+TCP 10.2.1 and a cross-compiler toolchain
 
 ### Cloning
 
@@ -394,7 +394,7 @@ Example output:
 
 - [x] TLS/HTTPS via mbedTLS (POSIX, with embedded CA bundle)
 - [x] Debug logging (`EC_DEBUG=1`) for LLM request/response inspection
-- [ ] FreeRTOS+TCP socket backend (`ec_socket.c`)
+- [x] FreeRTOS+TCP socket backend (`ec_socket.c`)
 - [ ] FreeRTOS UART and Telnet I/O backends
 - [ ] FreeRTOS TLS support (socket layer already TLS-aware)
 - [ ] Flash/NVS persistence for conversation history across power cycles
