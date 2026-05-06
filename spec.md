@@ -304,7 +304,9 @@ int  ec_io_write(const char *str);
 ```
 
 Implementations:
-- **UART** (`ec_io_uart.c`): wraps FreeRTOS UART HAL (or POSIX stdin/stdout).
+- **UART** (`ec_io_uart.c`): wraps POSIX stdin/stdout on host builds and uses
+  board-supplied FreeRTOS UART HAL hooks via `ec_io_uart_set_hal()` on
+  embedded builds.
 - **Telnet** (`ec_io_telnet.c`): TCP server on a fixed port (single connection).
 
 ### 10. Debug Logging (`ec_log.h` / `ec_log.c`)

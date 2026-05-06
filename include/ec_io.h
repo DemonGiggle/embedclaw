@@ -2,6 +2,7 @@
 #define EC_IO_H
 
 #include <stddef.h>
+#include <stdint.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -45,6 +46,24 @@ int ec_io_write(const char *str);
 
 /** POSIX: stdin/stdout. FreeRTOS: UART HAL (stub). */
 extern const ec_io_ops_t ec_io_uart_ops;
+
+/*
+ * FreeRTOS UART HAL bridge.
+ *
+ * Provide blocking or timeout-based byte transport hooks from your board/HAL,
+ * then call ec_io_uart_set_hal() before using ec_io_uart_ops on FreeRTOS.
+ *
+ * Return conventions for read/write hooks:
+ *   > 0  number of bytes transferred
+ *   = 0  timeout with no data/progress
+ *   < 0  error
+ */
+typedef struct {
+    int (*read)(void *buf, size_t len, uint32_t timeout_ms);
+    int (*write)(const void *buf, size_t len, uint32_t timeout_ms);
+} ec_io_uart_hal_t;
+
+void ec_io_uart_set_hal(const ec_io_uart_hal_t *hal);
 
 /** POSIX + FreeRTOS: TCP server on EC_CONFIG_TELNET_PORT. */
 extern const ec_io_ops_t ec_io_telnet_ops;
