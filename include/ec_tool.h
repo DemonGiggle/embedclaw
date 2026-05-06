@@ -1,7 +1,7 @@
 #ifndef EC_TOOL_H
 #define EC_TOOL_H
 
-#include "ec_api.h"
+#include "ec_model.h"
 #include <stddef.h>
 
 #ifdef __cplusplus
@@ -41,14 +41,14 @@ int ec_tool_register(const ec_tool_def_t *def);
  * @param out_size Size of out_json.
  * @return 0 on success, -1 if tool not found, or handler error code.
  */
-int ec_tool_dispatch(const ec_api_tool_call_t *call,
+int ec_tool_dispatch(const ec_model_tool_call_t *call,
                      char *out_json, size_t out_size);
 
 /**
- * Return the registered tool table as ec_api_tool_def_t array for passing
- * to ec_api_chat_completion. count is set to the number of entries.
+ * Return the registered tool table as ec_model_tool_def_t array for passing
+ * to ec_model_complete. count is set to the number of entries.
  */
-const ec_api_tool_def_t *ec_tool_api_defs(size_t *count);
+const ec_model_tool_def_t *ec_tool_model_defs(size_t *count);
 
 /* Tool definitions and implementations live in ec_skill_table.c.
  * Register them by calling ec_skill_init() at startup. */

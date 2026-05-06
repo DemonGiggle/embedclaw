@@ -1,7 +1,7 @@
 #ifndef EC_AGENT_H
 #define EC_AGENT_H
 
-#include "ec_api.h"
+#include "ec_model.h"
 #include "ec_session.h"
 #include "ec_config.h"
 #include <stddef.h>
@@ -11,9 +11,9 @@ extern "C" {
 #endif
 
 typedef struct {
-    const ec_api_config_t *api_config;
-    const char            *model;
-    ec_session_t          *session;
+    const ec_model_config_t *model_config;
+    const char              *model;
+    ec_session_t            *session;
 } ec_agent_t;
 
 /**
@@ -25,7 +25,7 @@ typedef struct {
  * @param session    Conversation session (already initialised).
  */
 void ec_agent_init(ec_agent_t *agent,
-                   const ec_api_config_t *api_config,
+                   const ec_model_config_t *model_config,
                    const char *model,
                    ec_session_t *session);
 

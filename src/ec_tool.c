@@ -14,21 +14,21 @@
 static const ec_tool_def_t *s_tools[EC_CONFIG_MAX_TOOLS];
 static size_t                s_tool_count = 0;
 
-/* Parallel array of ec_api_tool_def_t views for passing to ec_api */
-static ec_api_tool_def_t s_api_defs[EC_CONFIG_MAX_TOOLS];
+/* Parallel array of ec_model_tool_def_t views for passing to ec_model */
+static ec_model_tool_def_t s_model_defs[EC_CONFIG_MAX_TOOLS];
 
 int ec_tool_register(const ec_tool_def_t *def)
 {
     if (s_tool_count >= EC_CONFIG_MAX_TOOLS) return -1;
     s_tools[s_tool_count] = def;
-    s_api_defs[s_tool_count].name              = def->name;
-    s_api_defs[s_tool_count].description       = def->description;
-    s_api_defs[s_tool_count].parameters_schema = def->parameters_schema;
+    s_model_defs[s_tool_count].name              = def->name;
+    s_model_defs[s_tool_count].description       = def->description;
+    s_model_defs[s_tool_count].parameters_schema = def->parameters_schema;
     s_tool_count++;
     return 0;
 }
 
-int ec_tool_dispatch(const ec_api_tool_call_t *call,
+int ec_tool_dispatch(const ec_model_tool_call_t *call,
                      char *out_json, size_t out_size)
 {
     for (size_t i = 0; i < s_tool_count; i++) {
@@ -41,8 +41,8 @@ int ec_tool_dispatch(const ec_api_tool_call_t *call,
     return -1;
 }
 
-const ec_api_tool_def_t *ec_tool_api_defs(size_t *count)
+const ec_model_tool_def_t *ec_tool_model_defs(size_t *count)
 {
     *count = s_tool_count;
-    return s_api_defs;
+    return s_model_defs;
 }

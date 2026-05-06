@@ -33,7 +33,7 @@ int ec_session_append(ec_session_t *s, const char *role, const char *content)
 }
 
 int ec_session_append_tool_calls(ec_session_t *s,
-                                  const ec_api_tool_call_t *calls,
+                                  const ec_model_tool_call_t *calls,
                                   int num_calls)
 {
     if (s->count >= EC_CONFIG_MAX_HISTORY) return -1;
@@ -44,7 +44,7 @@ int ec_session_append_tool_calls(ec_session_t *s,
     strncpy(e->role, "assistant", sizeof(e->role) - 1);
     e->num_tool_calls = num_calls;
     memcpy(e->tool_calls, calls,
-           (size_t)num_calls * sizeof(ec_api_tool_call_t));
+           (size_t)num_calls * sizeof(ec_model_tool_call_t));
     s->count++;
     return 0;
 }
@@ -69,13 +69,13 @@ int ec_session_append_tool_result(ec_session_t *s,
     return 0;
 }
 
-const ec_api_message_t *ec_session_messages(ec_session_t *s, size_t *count)
+const ec_model_message_t *ec_session_messages(ec_session_t *s, size_t *count)
 {
     int idx = 0;
 
     /* First slot: system prompt (even if empty, some APIs require it) */
     if (s->system_prompt[0] != '\0') {
-        ec_api_message_t *m = &s->msg_view[idx++];
+        ec_model_message_t *m = &s->msg_view[idx++];
         memset(m, 0, sizeof(*m));
         m->role    = "system";
         m->content = s->system_prompt;
@@ -83,8 +83,8 @@ const ec_api_message_t *ec_session_messages(ec_session_t *s, size_t *count)
 
     /* Remaining slots: conversation entries */
     for (int i = 0; i < s->count; i++) {
-        ec_session_entry_t *e = &s->entries[i];
-        ec_api_message_t   *m = &s->msg_view[idx++];
+        ec_session_entry_t   *e = &s->entries[i];
+        ec_model_message_t   *m = &s->msg_view[idx++];
         memset(m, 0, sizeof(*m));
 
         m->role = e->role;

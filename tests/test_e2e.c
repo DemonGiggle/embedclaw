@@ -169,8 +169,9 @@
 static ec_session_t s_session;
 static ec_agent_t   s_agent;
 
-static const ec_api_config_t s_cfg = {
-    .base_url = "mock-host",
+static const ec_model_config_t s_cfg = {
+    .provider = EC_MODEL_PROVIDER_OPENAI_CHAT,
+    .host     = "mock-host",
     .port     = 80,
     .api_key  = "test-key",
     .use_tls  = 0,
