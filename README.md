@@ -345,7 +345,7 @@ result:    { "ok": true }
 
 On POSIX builds, a 16-register mock array at base `0x40000000` is used instead of real hardware.
 
-> **Security note**: On production builds, restrict valid address ranges in `ec_tool.c` before deploying. The LLM controls the address argument.
+> **Security note**: On embedded builds, hardware register access is restricted to registers declared in the compiled-in datasheet. Unknown addresses and policy-forbidden accesses are rejected. POSIX builds still use the mock register bank.
 
 ---
 
@@ -392,7 +392,7 @@ Example output:
 - [ ] FreeRTOS UART and Telnet I/O backends
 - [ ] FreeRTOS TLS support (socket layer already TLS-aware)
 - [ ] Flash/NVS persistence for conversation history across power cycles
-- [ ] Hardware register address allowlist for production safety
+- [x] Hardware register address allowlist for production safety
 - [ ] Minimal mbedTLS config for reduced binary size on embedded targets
 
 See [plan.md](plan.md) for the detailed implementation plan and [spec.md](spec.md) for the full design specification.

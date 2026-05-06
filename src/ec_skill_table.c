@@ -18,23 +18,11 @@
  */
 
 #include "ec_skill.h"
+#include "ec_hw_access.h"
 #include "ec_json.h"
 #include "ec_http.h"
 #include "ec_config.h"
 #include "ec_hw_datasheet.h"
-
-/*
- * Include the ASIC-specific register map header here.
- * Replace with your own chip's header (e.g. ec_hw_my_asic.h).
- * If no ASIC header is included, define EC_HW_NO_DATASHEET to compile
- * with an empty register map.
- */
-#if !defined(EC_HW_NO_DATASHEET)
-#include "ec_hw_example_asic.h"
-#else
-const ec_hw_module_t *EC_HW_MODULES      = NULL;
-const size_t          EC_HW_MODULE_COUNT = 0;
-#endif
 
 #include <string.h>
 #include <stdio.h>
@@ -112,7 +100,15 @@ static int hw_reg_read_fn(const char *args_json,
         return -1;
     }
 #else
-    /* SECURITY: add an address allowlist here before deploying */
+    char denial_reason[128];
+    if (!ec_hw_access_allowed((uint32_t)addr, EC_HW_ACCESS_READ,
+                              denial_reason, sizeof(denial_reason))) {
+        snprintf(out_json, out_size,
+                 "{\"error\":\"hardware access policy denied read at "
+                 "0x%08lx: %s\"}",
+                 addr, denial_reason);
+        return -1;
+    }
     val = *(volatile uint32_t *)(uintptr_t)addr;
 #endif
 
@@ -152,7 +148,15 @@ static int hw_reg_write_fn(const char *args_json,
         return -1;
     }
 #else
-    /* SECURITY: add an address allowlist here before deploying */
+    char denial_reason[128];
+    if (!ec_hw_access_allowed((uint32_t)addr, EC_HW_ACCESS_WRITE,
+                              denial_reason, sizeof(denial_reason))) {
+        snprintf(out_json, out_size,
+                 "{\"error\":\"hardware access policy denied write at "
+                 "0x%08lx: %s\"}",
+                 addr, denial_reason);
+        return -1;
+    }
     *(volatile uint32_t *)(uintptr_t)addr = (uint32_t)val;
 #endif
 
