@@ -56,6 +56,7 @@ endif()
 set(EC_SOURCES
     src/ec_hw_access.c
     src/ec_hw_registry.c
+    src/ec_mmio.c
     src/ec_log.c
     src/ec_model.c
     src/ec_socket.c
@@ -110,6 +111,7 @@ if(EC_PLATFORM STREQUAL "POSIX")
     set(EC_SOURCES_NO_HTTP
         src/ec_hw_access.c
         src/ec_hw_registry.c
+        src/ec_mmio.c
         src/ec_log.c
         src/ec_model.c
         src/ec_json.c

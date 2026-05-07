@@ -21,6 +21,7 @@
 
 #include "ec_skill.h"
 #include "ec_hw_access.h"
+#include "ec_mmio.h"
 #include "ec_json.h"
 #include "ec_http.h"
 #include "ec_config.h"
@@ -48,35 +49,8 @@ const char EC_BASE_SYSTEM_PROMPT[] =
  * Capability bundle: hw_register_control
  *
  * Provides 32-bit memory-mapped register read/write.
- * On POSIX builds a small mock register bank is used for testing.
+ * Register access flows through the shared MMIO layer.
  * ============================================================================ */
-
-#if defined(EC_PLATFORM_POSIX)
-
-#define MOCK_REG_BASE   0x40000000UL
-#define MOCK_REG_COUNT  16
-
-static uint32_t s_mock_regs[MOCK_REG_COUNT];
-
-static int mock_read(uint32_t addr, uint32_t *val)
-{
-    if (addr < MOCK_REG_BASE) return -1;
-    size_t idx = (addr - MOCK_REG_BASE) / 4;
-    if (idx >= MOCK_REG_COUNT) return -1;
-    *val = s_mock_regs[idx];
-    return 0;
-}
-
-static int mock_write(uint32_t addr, uint32_t val)
-{
-    if (addr < MOCK_REG_BASE) return -1;
-    size_t idx = (addr - MOCK_REG_BASE) / 4;
-    if (idx >= MOCK_REG_COUNT) return -1;
-    s_mock_regs[idx] = val;
-    return 0;
-}
-
-#endif /* EC_PLATFORM_POSIX */
 
 /* hw_register_read --------------------------------------------------------- */
 /* args:   { "address": "0x40000000" }                                        */
@@ -96,9 +70,9 @@ static int hw_reg_read_fn(const char *args_json,
     uint32_t val = 0;
 
 #if defined(EC_PLATFORM_POSIX)
-    if (mock_read((uint32_t)addr, &val) != 0) {
+    if (ec_mmio_read32((uint32_t)addr, &val) != 0) {
         snprintf(out_json, out_size,
-                 "{\"error\":\"0x%08lx out of mock range\"}", addr);
+                  "{\"error\":\"0x%08lx out of mock range\"}", addr);
         return -1;
     }
 #else
@@ -111,7 +85,11 @@ static int hw_reg_read_fn(const char *args_json,
                  addr, denial_reason);
         return -1;
     }
-    val = *(volatile uint32_t *)(uintptr_t)addr;
+    if (ec_mmio_read32((uint32_t)addr, &val) != 0) {
+        snprintf(out_json, out_size,
+                 "{\"error\":\"read failed at 0x%08lx\"}", addr);
+        return -1;
+    }
 #endif
 
     snprintf(out_json, out_size,
@@ -144,9 +122,9 @@ static int hw_reg_write_fn(const char *args_json,
     unsigned long val  = strtoul(val_str,  NULL, 0);
 
 #if defined(EC_PLATFORM_POSIX)
-    if (mock_write((uint32_t)addr, (uint32_t)val) != 0) {
+    if (ec_mmio_write32((uint32_t)addr, (uint32_t)val) != 0) {
         snprintf(out_json, out_size,
-                 "{\"error\":\"0x%08lx out of mock range\"}", addr);
+                  "{\"error\":\"0x%08lx out of mock range\"}", addr);
         return -1;
     }
 #else
@@ -159,7 +137,11 @@ static int hw_reg_write_fn(const char *args_json,
                  addr, denial_reason);
         return -1;
     }
-    *(volatile uint32_t *)(uintptr_t)addr = (uint32_t)val;
+    if (ec_mmio_write32((uint32_t)addr, (uint32_t)val) != 0) {
+        snprintf(out_json, out_size,
+                 "{\"error\":\"write failed at 0x%08lx\"}", addr);
+        return -1;
+    }
 #endif
 
     snprintf(out_json, out_size, "{\"ok\":true}");
