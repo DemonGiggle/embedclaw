@@ -1,0 +1,40 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: posix
+            host_sim: OFF
+            ctest_regex: e2e|telnet-io
+          - name: host-sim
+            host_sim: ON
+            ctest_regex: e2e|host-sim|telnet-io
+
+    name: ${{ matrix.name }}
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Configure
+        run: >
+          cmake -S . -B build
+          -DEC_PLATFORM=POSIX
+          -DEC_ENABLE_TLS=OFF
+          -DEC_HOST_SIM=${{ matrix.host_sim }}
+
+      - name: Build
+        run: cmake --build build
+
+      - name: Test
+        run: ctest --test-dir build --output-on-failure -R '${{ matrix.ctest_regex }}'
