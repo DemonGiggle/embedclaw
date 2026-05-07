@@ -119,8 +119,14 @@ cmake -DEC_PLATFORM=POSIX -DEC_HOST_SIM=ON ..
 make
 ```
 
-This produces the explicit simulation executable `embedclaw_sim_demo`, making
-the simulation profile visible at build time.
+This produces the explicit simulation executable `embedclaw_sim_demo` and the
+simulation-only validation target `embedclaw_host_sim_tests`, making the
+simulation profile visible at build time.
+
+Host simulation keeps the core runtime shared, but swaps hardware register
+access onto a bookkeeping-backed MMIO layer. The host-sim tool path still
+enforces the datasheet-backed access policy, so only modeled registers are
+readable or writable through the agent.
 
 ### Running tests
 
@@ -139,6 +145,17 @@ real socket-based I/O path:
 
 ```sh
 ctest --verbose -R 'e2e|telnet-io'
+```
+
+When built with `-DEC_HOST_SIM=ON`, the simulation profile also adds a host-sim
+test target that validates:
+
+- bookkeeping-backed MMIO through the real tool path,
+- deterministic mocked-model simulation mode, and
+- the real-provider path running against mocked HTTP.
+
+```sh
+ctest --verbose -R 'e2e|host-sim|telnet-io'
 ```
 
 ### FreeRTOS build
@@ -176,6 +193,19 @@ To run the explicit host simulation profile:
 
 ```sh
 ./build/embedclaw_sim_demo
+```
+
+Host simulation supports two model modes:
+
+- `EC_SIM_MODEL_MODE=real` (default) keeps the normal provider-backed path
+- `EC_SIM_MODEL_MODE=mock` uses a deterministic local model shim that still
+  drives the real tool loop
+
+Examples:
+
+```sh
+EC_SIM_MODEL_MODE=mock ./build/embedclaw_sim_demo
+EC_SIM_MODEL_MODE=real EC_API_KEY=sk-... ./build/embedclaw_sim_demo
 ```
 
 ### Session commands
