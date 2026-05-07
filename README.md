@@ -401,7 +401,7 @@ Example output:
 - [x] Debug logging (`EC_DEBUG=1`) for LLM request/response inspection
 - [x] FreeRTOS+TCP socket backend (`ec_socket.c`)
 - [x] FreeRTOS UART backend
-- [ ] FreeRTOS Telnet I/O backend
+- [x] FreeRTOS Telnet I/O backend
 - [ ] FreeRTOS TLS support (socket layer already TLS-aware)
 - [ ] Flash/NVS persistence for conversation history across power cycles
 - [x] Hardware register address allowlist for production safety
