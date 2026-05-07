@@ -9,6 +9,7 @@ extern "C" {
 
 typedef enum {
     EC_MODEL_PROVIDER_OPENAI_CHAT = 0,
+    EC_MODEL_PROVIDER_SIM_MOCK,
 } ec_model_provider_t;
 
 typedef struct {

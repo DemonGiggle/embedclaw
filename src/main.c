@@ -28,7 +28,11 @@ static void run_agent_loop(const ec_model_config_t *config, const char *model)
     char response[EC_CONFIG_CONTENT_BUF];
 
 #if defined(EC_PLATFORM_POSIX) && defined(EC_CONFIG_HOST_SIM) && EC_CONFIG_HOST_SIM
-    ec_io_write("EmbedClaw host simulation ready. Type /reset to clear history, /quit to exit.\n> ");
+    if (config->provider == EC_MODEL_PROVIDER_SIM_MOCK) {
+        ec_io_write("EmbedClaw host simulation ready (mock model). Type /reset to clear history, /quit to exit.\n> ");
+    } else {
+        ec_io_write("EmbedClaw host simulation ready (real provider). Type /reset to clear history, /quit to exit.\n> ");
+    }
 #else
     ec_io_write("EmbedClaw ready. Type /reset to clear history, /quit to exit.\n> ");
 #endif
@@ -106,6 +110,32 @@ int main(int argc, char **argv)
     const char *model = getenv("EC_MODEL");
     if (!model) model = EC_CONFIG_MODEL;
 
+    ec_model_provider_t provider = EC_MODEL_PROVIDER_OPENAI_CHAT;
+    const char *sim_mode = getenv("EC_SIM_MODEL_MODE");
+#if defined(EC_CONFIG_HOST_SIM) && EC_CONFIG_HOST_SIM
+    if (!sim_mode || *sim_mode == '\0' || strcmp(sim_mode, "real") == 0) {
+        provider = EC_MODEL_PROVIDER_OPENAI_CHAT;
+    } else if (strcmp(sim_mode, "mock") == 0) {
+        provider = EC_MODEL_PROVIDER_SIM_MOCK;
+    } else {
+        fprintf(stderr, "Invalid EC_SIM_MODEL_MODE=%s (expected real or mock)\n",
+                sim_mode);
+        return 2;
+    }
+
+    if (provider == EC_MODEL_PROVIDER_OPENAI_CHAT &&
+        strcmp(api_key, EC_CONFIG_API_KEY) == 0) {
+        fprintf(stderr,
+                "warning: EC_API_KEY is still the placeholder value; real host simulation needs a valid provider key\n");
+    }
+#else
+    if (sim_mode && *sim_mode) {
+        fprintf(stderr,
+                "EC_SIM_MODEL_MODE is only supported in EC_HOST_SIM builds\n");
+        return 2;
+    }
+#endif
+
     /* Select I/O backend:
      *   EC_IO=telnet  — TCP server on EC_CONFIG_TELNET_PORT (default 2323)
      *   EC_IO=uart    — stdin/stdout (default)                            */
@@ -117,7 +147,7 @@ int main(int argc, char **argv)
     }
 
     ec_model_config_t config = {
-        .provider = EC_MODEL_PROVIDER_OPENAI_CHAT,
+        .provider = provider,
         .host     = host,
         .port     = (uint16_t)port,
         .api_key  = api_key,
