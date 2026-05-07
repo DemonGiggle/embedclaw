@@ -144,7 +144,23 @@ if(EC_PLATFORM STREQUAL "POSIX")
     target_include_directories(embedclaw_telnet_tests PRIVATE include tests)
     target_compile_definitions(embedclaw_telnet_tests PRIVATE EC_CONFIG_TELNET_PORT=24232)
 
+    if(EC_HOST_SIM)
+        add_executable(embedclaw_host_sim_tests
+            ${EC_SOURCES_NO_HTTP}
+            tests/mock_http.c
+            tests/test_host_sim.c
+        )
+        target_include_directories(embedclaw_host_sim_tests PRIVATE include tests)
+        target_compile_definitions(embedclaw_host_sim_tests PRIVATE
+            EC_CONFIG_USE_TLS=0
+            EC_CONFIG_HOST_SIM=1
+        )
+    endif()
+
     enable_testing()
     add_test(NAME e2e COMMAND embedclaw_tests)
     add_test(NAME telnet-io COMMAND embedclaw_telnet_tests)
+    if(EC_HOST_SIM)
+        add_test(NAME host-sim COMMAND embedclaw_host_sim_tests)
+    endif()
 endif()
