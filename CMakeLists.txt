@@ -114,6 +114,15 @@ if(EC_PLATFORM STREQUAL "POSIX")
     # to include mbedTLS headers
     target_compile_definitions(embedclaw_tests PRIVATE EC_CONFIG_USE_TLS=0)
 
+    add_executable(embedclaw_telnet_tests
+        src/ec_io.c
+        src/ec_io_telnet.c
+        tests/test_telnet_io.c
+    )
+    target_include_directories(embedclaw_telnet_tests PRIVATE include tests)
+    target_compile_definitions(embedclaw_telnet_tests PRIVATE EC_CONFIG_TELNET_PORT=24232)
+
     enable_testing()
     add_test(NAME e2e COMMAND embedclaw_tests)
+    add_test(NAME telnet-io COMMAND embedclaw_telnet_tests)
 endif()
