@@ -649,7 +649,21 @@ static int test_hw_register_lookup_unknown(void)
 }
 
 /* =========================================================================
- * Test 15 — datasheet-backed hardware access policy allows known accesses
+ * Test 15 — capability bundles contribute explicit policy boundaries
+ * ========================================================================= */
+static int test_capability_policy_prompt(void)
+{
+    const char *prompt = ec_skill_get_system_prompt();
+    ASSERT(prompt != NULL, "system prompt should be available");
+    ASSERT_STR(prompt, "Capability policy: privileged local tools.",
+               "prompt should include privileged hardware policy");
+    ASSERT_STR(prompt, "Capability policy: external tools.",
+               "prompt should include external web policy");
+    return 1;
+}
+
+/* =========================================================================
+ * Test 16 — datasheet-backed hardware access policy allows known accesses
  * ========================================================================= */
 static int test_hw_access_policy_allows_known_registers(void)
 {
@@ -668,7 +682,7 @@ static int test_hw_access_policy_allows_known_registers(void)
 }
 
 /* =========================================================================
- * Test 16 — datasheet-backed hardware access policy rejects denied accesses
+ * Test 17 — datasheet-backed hardware access policy rejects denied accesses
  * ========================================================================= */
 static int test_hw_access_policy_rejects_denied_access(void)
 {
@@ -712,6 +726,7 @@ int main(void)
     RUN_TEST(test_hw_register_lookup);
     RUN_TEST(test_hw_register_lookup_filter);
     RUN_TEST(test_hw_register_lookup_unknown);
+    RUN_TEST(test_capability_policy_prompt);
     RUN_TEST(test_hw_access_policy_allows_known_registers);
     RUN_TEST(test_hw_access_policy_rejects_denied_access);
 

@@ -211,21 +211,23 @@ int ec_tool_dispatch(const ec_api_tool_call_t *call, char *out_json, size_t out_
 const ec_api_tool_def_t *ec_tool_api_defs(size_t *count);
 ```
 
-### 6. Skill System (`ec_skill.h` / `ec_skill.c` / `ec_skill_table.c`)
+### 6. Capability Bundle System (`ec_skill.h` / `ec_skill.c` / `ec_skill_table.c`)
 
-Skills are compile-time capability bundles. Each skill contributes:
+Capability bundles are compile-time capability groups. Each bundle contributes:
 - One or more tools (registered via `ec_tool_register`)
 - A system prompt fragment (appended to the LLM system message)
+- A policy note that marks the bundle as local, privileged, or external
 
 ```c
 typedef struct {
     const char *name;
-    void      (*init)(void);           /* register tools */
-    const char *system_context;        /* appended to system prompt */
-} ec_skill_def_t;
+    const char *system_context;
+    const char *policy_note;
+    ec_capability_policy_t policy;
+} ec_capability_bundle_t;
 ```
 
-**Built-in skills:**
+**Built-in capability bundles:**
 
 - **`hw_register_control`** — `hw_register_read` and `hw_register_write` tools.
   On POSIX: 16-register mock array at base `0x40000000`.
@@ -367,7 +369,7 @@ socket/TLS stack.
 | `EC_CONFIG_MAX_TOOL_CALLS`    | 4       | Max tool_calls in one LLM response   |
 | `EC_CONFIG_MAX_HISTORY`       | 64      | Max messages in conversation history |
 | `EC_CONFIG_MAX_TOOLS`         | 16      | Max registered tools                 |
-| `EC_CONFIG_MAX_SKILLS`        | 16      | Max registered skills                |
+| `EC_CONFIG_MAX_SKILLS`        | 16      | Max registered capability bundles    |
 | `EC_CONFIG_MAX_AGENT_ITERS`   | 8       | Max agentic loop iterations per turn |
 
 ---

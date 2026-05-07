@@ -1,19 +1,21 @@
 /*
  * ============================================================================
- * EmbedClaw Skill Table
+ * EmbedClaw Capability Table
  *
  * This is the single file to edit when configuring firmware capabilities.
  *
- * HOW TO ADD A SKILL
+ * HOW TO ADD A CAPABILITY BUNDLE
  * ------------------
  * 1. Implement your tool handler(s) as static functions below.
  * 2. Declare them in a static ec_tool_def_t array.
- * 3. Add an ec_skill_t entry to s_skill_table[] at the bottom.
+ * 3. Add an ec_capability_bundle_t entry to s_capability_table[] at the bottom.
  *
- * Each skill contributes:
+ * Each capability bundle contributes:
  *   system_context — text appended to the LLM system prompt; describe what
  *                    the hardware does so the model uses the tools correctly.
- *   tools[]        — functions the LLM can invoke for this skill.
+ *   policy_note    — explicit boundary describing whether the tools are local,
+ *                    privileged, or external.
+ *   tools[]        — functions the LLM can invoke for this bundle.
  * ============================================================================
  */
 
@@ -43,7 +45,7 @@ const char EC_BASE_SYSTEM_PROMPT[] =
     "Always report register values in hexadecimal.";
 
 /* ============================================================================
- * Skill: hw_register_control
+ * Capability bundle: hw_register_control
  *
  * Provides 32-bit memory-mapped register read/write.
  * On POSIX builds a small mock register bank is used for testing.
@@ -207,7 +209,7 @@ static const ec_tool_def_t s_hw_tools[] = {
 };
 
 /* ============================================================================
- * Skill: hw_datasheet
+ * Capability bundle: hw_datasheet
  *
  * Provides lookup tools for the ASIC register map so the LLM can discover
  * modules, registers, and bit fields on demand without a huge system prompt.
@@ -388,7 +390,7 @@ static const ec_tool_def_t s_datasheet_tools[] = {
 };
 
 /* ============================================================================
- * Skill: web_browsing
+ * Capability bundle: web_browsing
  *
  * Provides web_search (Brave Search API) and web_fetch (HTTP GET any URL).
  * On POSIX, EC_BRAVE_API_KEY overrides the compile-time default.
@@ -666,13 +668,13 @@ static const ec_tool_def_t s_web_tools[] = {
 };
 
 /* ============================================================================
- * Skill Table
+ * Capability Bundle Table
  *
- * Add or remove ec_skill_t entries here to control what capabilities are
+ * Add or remove ec_capability_bundle_t entries here to control what capabilities are
  * compiled into this firmware build.
  * ============================================================================ */
 
-static const ec_skill_t s_skill_table[] = {
+static const ec_capability_bundle_t s_capability_table[] = {
 
     /* ---------------------------------------------------------------------- */
     {
@@ -683,8 +685,13 @@ static const ec_skill_t s_skill_table[] = {
             "Registers are 32-bit, word-aligned, addressed as hex strings "
             "(e.g. '0x40000000').\n"
             "Read a register to inspect hardware state; write to configure it.",
+        .policy_note =
+            "Capability policy: privileged local tools.\n"
+            "Use datasheet-backed lookup before register access, and write "
+            "registers only when the user intent requires device changes.",
         .tools     = s_hw_tools,
         .num_tools = sizeof(s_hw_tools) / sizeof(s_hw_tools[0]),
+        .policy    = EC_CAPABILITY_POLICY_PRIVILEGED,
     },
     /* ---------------------------------------------------------------------- */
     {
@@ -697,8 +704,12 @@ static const ec_skill_t s_skill_table[] = {
             "definitions, access types, and programming notes for a module.\n"
             "Always look up register details before reading or writing "
             "hardware registers — do not guess addresses or bit layouts.",
+        .policy_note =
+            "Capability policy: local reference tools.\n"
+            "Prefer these tools before invoking privileged hardware control.",
         .tools     = s_datasheet_tools,
         .num_tools = sizeof(s_datasheet_tools) / sizeof(s_datasheet_tools[0]),
+        .policy    = EC_CAPABILITY_POLICY_LOCAL,
     },
     /* ---------------------------------------------------------------------- */
     {
@@ -711,14 +722,19 @@ static const ec_skill_t s_skill_table[] = {
             "a specific URL.\n"
             "web_fetch returns raw HTML/text — summarise the relevant "
             "parts for the user rather than dumping the whole page.",
+        .policy_note =
+            "Capability policy: external tools.\n"
+            "These tools call remote HTTP services, so use them only when "
+            "the user asks for internet information or fresh external data.",
         .tools     = s_web_tools,
         .num_tools = sizeof(s_web_tools) / sizeof(s_web_tools[0]),
+        .policy    = EC_CAPABILITY_POLICY_EXTERNAL,
     },
     /* ---------------------------------------------------------------------- */
 
 };
 
 /* Exported symbols referenced by ec_skill.c */
-const ec_skill_t *EC_SKILL_TABLE       = s_skill_table;
-const size_t      EC_SKILL_TABLE_COUNT =
-    sizeof(s_skill_table) / sizeof(s_skill_table[0]);
+const ec_capability_bundle_t *EC_CAPABILITY_TABLE       = s_capability_table;
+const size_t                  EC_CAPABILITY_TABLE_COUNT =
+    sizeof(s_capability_table) / sizeof(s_capability_table[0]);

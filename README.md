@@ -12,7 +12,7 @@ It is the embedded counterpart to OpenClaw — same agentic loop, same OpenAI to
 - **Provider adapter boundary** — the agent loop talks to `ec_model`, so model/provider backends can evolve without rewriting the core loop
 - **TLS/HTTPS** — mbedTLS integration with embedded CA bundle; no filesystem required
 - **Agentic loop** — dispatches tool calls from the LLM, feeds results back, and loops until a final text response
-- **Skill system** — compile-time capability bundles; each skill contributes tools and LLM system context
+- **Capability bundles** — compile-time capability groups with explicit policy boundaries; each bundle contributes tools and LLM system context
 - **Built-in tools** — hardware register read/write, register map lookup, web search (Brave API), and web page fetch
 - **Extensible tool framework** — register new tools with a name, JSON Schema, and a C handler function
 - **Persistent conversation** — session history survives UART/Telnet reconnects across the device lifetime
@@ -184,7 +184,7 @@ All limits are compile-time constants in `include/ec_config.h`:
 | `EC_CONFIG_MAX_AGENT_ITERS` | `8` | Max tool-call iterations per turn |
 | **Tool / skill framework** | | |
 | `EC_CONFIG_MAX_TOOLS` | `16` | Max registered tools |
-| `EC_CONFIG_MAX_SKILLS` | `16` | Max registered skills |
+| `EC_CONFIG_MAX_SKILLS` | `16` | Max registered capability bundles |
 | `EC_CONFIG_SYSTEM_PROMPT_BUF` | `2048` | Combined system prompt buffer (bytes) |
 | **I/O layer** | | |
 | `EC_CONFIG_IO_LINE_BUF` | `256` | User input line buffer (bytes) |
@@ -263,7 +263,7 @@ transport hooks through `ec_io_uart_set_hal()`, then selects `ec_io_uart_ops`.
 
 ## Hardware datasheet tools
 
-Two tools are registered via the `hw_datasheet` skill, giving the LLM on-demand access to the device's register map without bloating the system prompt:
+Two tools are registered via the `hw_datasheet` capability bundle, giving the LLM on-demand access to the device's register map without bloating the system prompt:
 
 **`hw_module_list`** — list all hardware modules on the device.
 ```
@@ -320,7 +320,7 @@ Then include your header from `ec_skill_table.c` in place of `ec_hw_example_asic
 
 ## Web browsing tools
 
-Two tools provide web access, registered via the `web_browsing` skill:
+Two tools provide web access, registered via the `web_browsing` capability bundle:
 
 **`web_search`** — search the web using the Brave Search API.
 ```
@@ -340,7 +340,7 @@ The Brave Search API key is configured via `EC_BRAVE_API_KEY` (environment varia
 
 ## Hardware register tools
 
-Two tools are registered via the `hw_register_control` skill:
+Two tools are registered via the `hw_register_control` capability bundle:
 
 **`hw_register_read`** — read a 32-bit memory-mapped register.
 ```
