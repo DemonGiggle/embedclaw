@@ -119,6 +119,13 @@ cmake -DEC_PLATFORM=POSIX -DEC_HOST_SIM=ON ..
 make
 ```
 
+If `third_party/mbedtls` is not initialized, use the same no-TLS fallback as the
+normal POSIX build:
+
+```sh
+cmake -DEC_PLATFORM=POSIX -DEC_HOST_SIM=ON -DEC_ENABLE_TLS=OFF ..
+```
+
 This produces the explicit simulation executable `embedclaw_sim_demo` and the
 simulation-only validation target `embedclaw_host_sim_tests`, making the
 simulation profile visible at build time.
@@ -195,18 +202,46 @@ To run the explicit host simulation profile:
 ./build/embedclaw_sim_demo
 ```
 
+The host simulator defaults to the deterministic mock-model mode, so a plain
+local run works without provider credentials:
+
+```sh
+./build/embedclaw_sim_demo
+```
+
 Host simulation supports two model modes:
 
-- `EC_SIM_MODEL_MODE=real` (default) keeps the normal provider-backed path
-- `EC_SIM_MODEL_MODE=mock` uses a deterministic local model shim that still
+- `EC_SIM_MODEL_MODE=mock` (default) uses a deterministic local model shim that still
   drives the real tool loop
+- `EC_SIM_MODEL_MODE=real` keeps the normal provider-backed path
 
 Examples:
 
 ```sh
-EC_SIM_MODEL_MODE=mock ./build/embedclaw_sim_demo
+./build/embedclaw_sim_demo
 EC_SIM_MODEL_MODE=real EC_API_KEY=sk-... ./build/embedclaw_sim_demo
 ```
+
+### Host simulator shell
+
+The simulator runs as a simple line-oriented shell. After startup it prints a
+ready banner and a `>` prompt. Type one request per line and press Enter.
+
+In the default `EC_SIM_MODEL_MODE=mock`, the local mock model is best suited for direct
+register operations. For example:
+
+```text
+> read register 0x40001000
+Simulated register 0x40001000 contains 0x00000000.
+> write register 0x40001000 to 0x00000001
+Simulated register write completed.
+> read register 0x40001000
+Simulated register 0x40001000 contains 0x00000001.
+```
+
+In `EC_SIM_MODEL_MODE=real`, the shell works the same way, but responses come
+from the configured provider-backed model instead of the deterministic local
+shim.
 
 ### Session commands
 

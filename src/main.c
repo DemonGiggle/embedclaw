@@ -113,10 +113,10 @@ int main(int argc, char **argv)
     ec_model_provider_t provider = EC_MODEL_PROVIDER_OPENAI_CHAT;
     const char *sim_mode = getenv("EC_SIM_MODEL_MODE");
 #if defined(EC_CONFIG_HOST_SIM) && EC_CONFIG_HOST_SIM
-    if (!sim_mode || *sim_mode == '\0' || strcmp(sim_mode, "real") == 0) {
-        provider = EC_MODEL_PROVIDER_OPENAI_CHAT;
-    } else if (strcmp(sim_mode, "mock") == 0) {
+    if (!sim_mode || *sim_mode == '\0' || strcmp(sim_mode, "mock") == 0) {
         provider = EC_MODEL_PROVIDER_SIM_MOCK;
+    } else if (strcmp(sim_mode, "real") == 0) {
+        provider = EC_MODEL_PROVIDER_OPENAI_CHAT;
     } else {
         fprintf(stderr, "Invalid EC_SIM_MODEL_MODE=%s (expected real or mock)\n",
                 sim_mode);
