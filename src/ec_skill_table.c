@@ -69,7 +69,22 @@ static int hw_reg_read_fn(const char *args_json,
     unsigned long addr = strtoul(addr_str, NULL, 0);
     uint32_t val = 0;
 
-#if defined(EC_PLATFORM_POSIX)
+#if defined(EC_PLATFORM_POSIX) && defined(EC_CONFIG_HOST_SIM) && EC_CONFIG_HOST_SIM
+    char denial_reason[128];
+    if (!ec_hw_access_allowed((uint32_t)addr, EC_HW_ACCESS_READ,
+                              denial_reason, sizeof(denial_reason))) {
+        snprintf(out_json, out_size,
+                 "{\"error\":\"hardware access policy denied read at "
+                 "0x%08lx: %s\"}",
+                 addr, denial_reason);
+        return -1;
+    }
+    if (ec_mmio_read32((uint32_t)addr, &val) != 0) {
+        snprintf(out_json, out_size,
+                 "{\"error\":\"read failed at 0x%08lx\"}", addr);
+        return -1;
+    }
+#elif defined(EC_PLATFORM_POSIX)
     if (ec_mmio_read32((uint32_t)addr, &val) != 0) {
         snprintf(out_json, out_size,
                   "{\"error\":\"0x%08lx out of mock range\"}", addr);
@@ -121,7 +136,22 @@ static int hw_reg_write_fn(const char *args_json,
     unsigned long addr = strtoul(addr_str, NULL, 0);
     unsigned long val  = strtoul(val_str,  NULL, 0);
 
-#if defined(EC_PLATFORM_POSIX)
+#if defined(EC_PLATFORM_POSIX) && defined(EC_CONFIG_HOST_SIM) && EC_CONFIG_HOST_SIM
+    char denial_reason[128];
+    if (!ec_hw_access_allowed((uint32_t)addr, EC_HW_ACCESS_WRITE,
+                              denial_reason, sizeof(denial_reason))) {
+        snprintf(out_json, out_size,
+                 "{\"error\":\"hardware access policy denied write at "
+                 "0x%08lx: %s\"}",
+                 addr, denial_reason);
+        return -1;
+    }
+    if (ec_mmio_write32((uint32_t)addr, (uint32_t)val) != 0) {
+        snprintf(out_json, out_size,
+                 "{\"error\":\"write failed at 0x%08lx\"}", addr);
+        return -1;
+    }
+#elif defined(EC_PLATFORM_POSIX)
     if (ec_mmio_write32((uint32_t)addr, (uint32_t)val) != 0) {
         snprintf(out_json, out_size,
                   "{\"error\":\"0x%08lx out of mock range\"}", addr);
