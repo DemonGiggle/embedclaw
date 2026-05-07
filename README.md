@@ -13,6 +13,7 @@ It is the embedded counterpart to OpenClaw — same agentic loop, same OpenAI to
 - **TLS/HTTPS** — mbedTLS integration with embedded CA bundle; no filesystem required
 - **Agentic loop** — dispatches tool calls from the LLM, feeds results back, and loops until a final text response
 - **Capability bundles** — compile-time capability groups with explicit policy boundaries; each bundle contributes tools and LLM system context
+- **Host simulation profile** — explicit POSIX simulation mode for exercising almost all of the runtime on a desktop host
 - **Built-in tools** — hardware register read/write, register map lookup, web search (Brave API), and web page fetch
 - **Extensible tool framework** — register new tools with a name, JSON Schema, and a C handler function
 - **Persistent conversation** — session history survives UART/Telnet reconnects across the device lifetime
@@ -110,6 +111,17 @@ cmake -DEC_PLATFORM=POSIX -DEC_ENABLE_TLS=OFF ..
 This produces `embedclaw_demo`, `libembedclaw.a`, `embedclaw_tests`, and the
 POSIX Telnet smoke-test target `embedclaw_telnet_tests`.
 
+### Host simulation profile
+
+```sh
+mkdir build && cd build
+cmake -DEC_PLATFORM=POSIX -DEC_HOST_SIM=ON ..
+make
+```
+
+This produces the explicit simulation executable `embedclaw_sim_demo`, making
+the simulation profile visible at build time.
+
 ### Running tests
 
 From the build directory (POSIX only):
@@ -158,6 +170,12 @@ The demo defaults to **stdin/stdout** (UART mode). To use the Telnet backend ins
 ```sh
 EC_IO=telnet ./build/embedclaw_demo &
 telnet localhost 2323
+```
+
+To run the explicit host simulation profile:
+
+```sh
+./build/embedclaw_sim_demo
 ```
 
 ### Session commands

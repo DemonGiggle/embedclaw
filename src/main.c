@@ -27,7 +27,11 @@ static void run_agent_loop(const ec_model_config_t *config, const char *model)
     char line[EC_CONFIG_IO_LINE_BUF];
     char response[EC_CONFIG_CONTENT_BUF];
 
+#if defined(EC_PLATFORM_POSIX) && defined(EC_CONFIG_HOST_SIM) && EC_CONFIG_HOST_SIM
+    ec_io_write("EmbedClaw host simulation ready. Type /reset to clear history, /quit to exit.\n> ");
+#else
     ec_io_write("EmbedClaw ready. Type /reset to clear history, /quit to exit.\n> ");
+#endif
 
     for (;;) {
         int n = ec_io_read_line(line, sizeof(line));

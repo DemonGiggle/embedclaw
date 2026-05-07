@@ -11,9 +11,18 @@ endif()
 
 add_compile_definitions(EC_PLATFORM_${EC_PLATFORM})
 
+option(EC_HOST_SIM "Enable explicit host simulation profile (POSIX only)" OFF)
+
 if(EC_PLATFORM STREQUAL "POSIX")
-    message(STATUS "Building for POSIX (host development)")
+    if(EC_HOST_SIM)
+        message(STATUS "Building for POSIX host simulation")
+    else()
+        message(STATUS "Building for POSIX (host development)")
+    endif()
 else()
+    if(EC_HOST_SIM)
+        message(FATAL_ERROR "EC_HOST_SIM is only supported with EC_PLATFORM=POSIX")
+    endif()
     message(STATUS "Building for FreeRTOS (embedded target)")
     if(NOT DEFINED FREERTOS_PATH)
         message(FATAL_ERROR "FREERTOS_PATH must be set for FreeRTOS builds")
@@ -75,9 +84,20 @@ else()
     target_compile_definitions(embedclaw PUBLIC EC_CONFIG_USE_TLS=0)
 endif()
 
+if(EC_HOST_SIM)
+    target_compile_definitions(embedclaw PUBLIC EC_CONFIG_HOST_SIM=1)
+else()
+    target_compile_definitions(embedclaw PUBLIC EC_CONFIG_HOST_SIM=0)
+endif()
+
 # Demo executable
-add_executable(embedclaw_demo src/main.c)
-target_link_libraries(embedclaw_demo PRIVATE embedclaw)
+if(EC_PLATFORM STREQUAL "POSIX" AND EC_HOST_SIM)
+    add_executable(embedclaw_sim_demo src/main.c)
+    target_link_libraries(embedclaw_sim_demo PRIVATE embedclaw)
+else()
+    add_executable(embedclaw_demo src/main.c)
+    target_link_libraries(embedclaw_demo PRIVATE embedclaw)
+endif()
 
 # -------------------------------------------------------------------------
 # End-to-end test executable
