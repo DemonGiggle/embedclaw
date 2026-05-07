@@ -384,3 +384,16 @@ socket/TLS stack.
   strings, never partial.
 - **History persistence across power cycles**: Currently in-RAM only. Flash/NVS
   persistence would require a serialize/deserialize step in `ec_session`.
+
+---
+
+## Validation Notes
+
+- Fast regression coverage should continue to run through the mock-HTTP agent
+  tests on POSIX.
+- Socket-based I/O regressions should be covered with a POSIX Telnet smoke
+  test so newline framing and Telnet command parsing are exercised against the
+  real network path.
+- FreeRTOS validation still requires target bring-up checks for networking,
+  UART, Telnet, hardware safety policy, and one full agent turn against the
+  configured provider.

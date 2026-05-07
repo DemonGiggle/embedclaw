@@ -107,7 +107,8 @@ To build without TLS (no mbedTLS dependency):
 cmake -DEC_PLATFORM=POSIX -DEC_ENABLE_TLS=OFF ..
 ```
 
-This produces `embedclaw_demo`, `libembedclaw.a`, and `embedclaw_tests`.
+This produces `embedclaw_demo`, `libembedclaw.a`, `embedclaw_tests`, and the
+POSIX Telnet smoke-test target `embedclaw_telnet_tests`.
 
 ### Running tests
 
@@ -118,7 +119,15 @@ make embedclaw_tests
 ctest --verbose
 ```
 
-The test suite (`tests/test_e2e.c`) runs the full agent stack with a mock HTTP layer instead of real networking.
+The test suite (`tests/test_e2e.c`) runs the full agent stack with a mock HTTP
+layer instead of real networking.
+
+The POSIX validation suite also includes a Telnet smoke test that exercises the
+real socket-based I/O path:
+
+```sh
+ctest --verbose -R 'e2e|telnet-io'
+```
 
 ### FreeRTOS build
 
@@ -395,6 +404,18 @@ Example output:
 
 ---
 
+## FreeRTOS bring-up validation
+
+When validating a target build, use this minimum checklist:
+
+1. **Network path** — verify the device obtains network connectivity and can open a TCP connection to the configured model/API host.
+2. **UART path** — verify the board-specific `ec_io_uart_set_hal()` hooks can read a full line and write a reply without truncation or lockup.
+3. **Telnet path** — verify a client can connect, send fragmented lines, and receive responses over the FreeRTOS Telnet backend.
+4. **Safety path** — verify datasheet-backed register policy rejects unknown or forbidden accesses on target hardware.
+5. **Agent path** — run one full prompt/tool/result turn against the configured model provider with debug logging enabled.
+
+---
+
 ## Roadmap
 
 - [x] TLS/HTTPS via mbedTLS (POSIX, with embedded CA bundle)
@@ -402,6 +423,7 @@ Example output:
 - [x] FreeRTOS+TCP socket backend (`ec_socket.c`)
 - [x] FreeRTOS UART backend
 - [x] FreeRTOS Telnet I/O backend
+- [x] POSIX Telnet smoke validation coverage
 - [ ] FreeRTOS TLS support (socket layer already TLS-aware)
 - [ ] Flash/NVS persistence for conversation history across power cycles
 - [x] Hardware register address allowlist for production safety

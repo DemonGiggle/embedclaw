@@ -49,7 +49,9 @@
 
 /* I/O layer */
 #define EC_CONFIG_IO_LINE_BUF          256  /* user input line buffer */
+#ifndef EC_CONFIG_TELNET_PORT
 #define EC_CONFIG_TELNET_PORT          2323
+#endif
 #define EC_CONFIG_UART_RX_TIMEOUT_MS   100  /* FreeRTOS UART read poll timeout */
 #define EC_CONFIG_UART_TX_TIMEOUT_MS   1000 /* FreeRTOS UART write timeout */
 
