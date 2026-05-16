@@ -19,7 +19,7 @@
  * ============================================================================
  */
 
-#include "ec_skill.h"
+#include "ec_capability.h"
 #include "ec_hw_access.h"
 #include "ec_mmio.h"
 #include "ec_json.h"
@@ -34,7 +34,7 @@
 /* ============================================================================
  * Base system prompt
  *
- * Describes the device personality before any skill contexts are appended.
+ * Describes the device personality before any capability bundle contexts are appended.
  * Edit this string to change the overall agent behaviour.
  * ============================================================================ */
 
@@ -746,7 +746,7 @@ static const ec_capability_bundle_t s_capability_table[] = {
 
 };
 
-/* Exported symbols referenced by ec_skill.c */
+/* Exported symbols referenced by ec_capability.c */
 const ec_capability_bundle_t *EC_CAPABILITY_TABLE       = s_capability_table;
 const size_t                  EC_CAPABILITY_TABLE_COUNT =
     sizeof(s_capability_table) / sizeof(s_capability_table[0]);

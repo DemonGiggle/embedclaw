@@ -2,7 +2,7 @@
  * EmbedClaw end-to-end tests.
  *
  * Real stack under test:
- *   ec_skill_table → ec_skill → ec_agent → ec_session → ec_api → [mock HTTP]
+ *   ec_capability_table → ec_capability → ec_agent → ec_session → ec_api → [mock HTTP]
  *   ec_tool dispatch → hw_register_read/write (POSIX mock registers)
  *
  * Only ec_http_request is replaced (mock_http.c).  Everything else is real.
@@ -19,7 +19,7 @@
 #include "mock_http.h"
 #include "ec_agent.h"
 #include "ec_session.h"
-#include "ec_skill.h"
+#include "ec_capability.h"
 #include "ec_hw_access.h"
 #include "ec_json.h"
 #include "ec_config.h"
@@ -653,7 +653,7 @@ static int test_hw_register_lookup_unknown(void)
  * ========================================================================= */
 static int test_capability_policy_prompt(void)
 {
-    const char *prompt = ec_skill_get_system_prompt();
+    const char *prompt = ec_capability_get_system_prompt();
     ASSERT(prompt != NULL, "system prompt should be available");
     ASSERT_STR(prompt, "Capability policy: privileged local tools.",
                "prompt should include privileged hardware policy");
@@ -707,8 +707,8 @@ static int test_hw_access_policy_rejects_denied_access(void)
 
 int main(void)
 {
-    /* Initialise skills once — registers tools into the global registry */
-    ec_skill_init();
+    /* Initialise capability bundles once — registers tools into the global registry */
+    ec_capability_init();
 
     printf("=== EmbedClaw End-to-End Tests ===\n\n");
 

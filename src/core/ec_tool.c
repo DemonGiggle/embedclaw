@@ -7,8 +7,8 @@
  * Tool registry and dispatcher.
  *
  * This file is pure infrastructure — it knows nothing about specific tools.
- * All tool definitions and implementations live in ec_skill_table.c and are
- * registered via ec_skill_init() at startup.
+ * All tool definitions and implementations live in ec_capability_table.c and are
+ * registered via ec_capability_init() at startup.
  * ========================================================================= */
 
 static const ec_tool_def_t *s_tools[EC_CONFIG_MAX_TOOLS];

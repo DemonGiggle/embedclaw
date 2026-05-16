@@ -3,7 +3,7 @@
 #include "ec_agent.h"
 #include "ec_mmio.h"
 #include "ec_session.h"
-#include "ec_skill.h"
+#include "ec_capability.h"
 
 #include <stdint.h>
 #include <string.h>
@@ -50,7 +50,7 @@ static void setup(const ec_model_config_t *cfg)
 {
     mock_http_reset();
     ec_mmio_reset();
-    ec_session_init(&s_session, ec_skill_get_system_prompt());
+    ec_session_init(&s_session, ec_capability_get_system_prompt());
     ec_agent_init(&s_agent, cfg, "test-model", &s_session);
 }
 
@@ -129,7 +129,7 @@ static int test_real_provider_path_in_host_sim(void)
 
 int main(void)
 {
-    ec_skill_init();
+    ec_capability_init();
 
     printf("=== EmbedClaw Host Simulation Tests ===\n\n");
 

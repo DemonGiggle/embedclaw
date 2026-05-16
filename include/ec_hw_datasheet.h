@@ -14,9 +14,9 @@
  * 2. Define const arrays of ec_hw_bitfield_t, ec_hw_register_t, and
  *    ec_hw_module_t.
  * 3. Define EC_HW_MODULES and EC_HW_MODULE_COUNT pointing to your tables.
- * 4. Include the header from ec_skill_table.c (or set it via a CMake option).
+ * 4. Include the header from ec_capability_table.c (or set it via a CMake option).
  *
- * The hw_datasheet skill provides two tools that query these tables:
+ * The hw_datasheet capability bundle provides two tools that query these tables:
  *   hw_module_list  — list all modules (name + description)
  *   hw_register_lookup — look up registers and bit fields in a module
  */
@@ -59,7 +59,7 @@ typedef struct {
 
 /**
  * These symbols must be defined by the ASIC-specific header.
- * If no ASIC header is included, ec_skill_table.c provides empty defaults.
+ * If no ASIC header is included, ec_capability_table.c provides empty defaults.
  */
 extern const ec_hw_module_t *EC_HW_MODULES;
 extern const size_t          EC_HW_MODULE_COUNT;

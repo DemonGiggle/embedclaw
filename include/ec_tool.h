@@ -50,8 +50,8 @@ int ec_tool_dispatch(const ec_model_tool_call_t *call,
  */
 const ec_model_tool_def_t *ec_tool_model_defs(size_t *count);
 
-/* Tool definitions and implementations live in ec_skill_table.c.
- * Register them by calling ec_skill_init() at startup. */
+/* Tool definitions and implementations live in ec_capability_table.c.
+ * Register them by calling ec_capability_init() at startup. */
 
 #ifdef __cplusplus
 }

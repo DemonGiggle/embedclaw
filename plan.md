@@ -16,10 +16,10 @@ The FreeRTOS backend remains stubbed, pending target hardware bring-up.
 | JSON builder/parser | `ec_json.c/h`                  | Done (writer + path-based parser)   |
 | Chat API            | `ec_api.c/h`                   | Done (text + tool_calls responses)  |
 | Tool framework      | `ec_tool.c/h`                  | Done (registry + dispatcher)        |
-| Skill system        | `ec_skill.c/h`, `ec_skill_table.c` | Done (compile-time skill bundles) |
-| HW register skill   | `ec_skill_table.c`             | Done (read/write, POSIX mock array) |
-| HW datasheet skill  | `ec_skill_table.c`, `ec_hw_datasheet.h` | Done (module list, register lookup) |
-| Web browsing skill  | `ec_skill_table.c`             | Done (web_search via Brave, web_fetch) |
+| Capability bundle system        | `ec_capability.c/h`, `ec_capability_table.c` | Done (compile-time capability bundles) |
+| HW register capability bundle   | `ec_capability_table.c`             | Done (read/write, POSIX mock array) |
+| HW datasheet capability bundle  | `ec_capability_table.c`, `ec_hw_datasheet.h` | Done (module list, register lookup) |
+| Web browsing capability bundle  | `ec_capability_table.c`             | Done (web_search via Brave, web_fetch) |
 | Session layer       | `ec_session.c/h`               | Done (ring buffer, tool_call support) |
 | Agent loop          | `ec_agent.c/h`                 | Done (multi-iteration tool dispatch) |
 | I/O abstraction     | `ec_io.c/h`                    | Done                                |
@@ -84,10 +84,10 @@ server). I/O mode selected via `EC_IO` environment variable on POSIX.
 
 ---
 
-### Phase 6 — Skill System ✅
+### Phase 6 — Capability Bundle System ✅
 
-**Completed.** Compile-time skill bundles in `ec_skill_table.c`. Each skill
-registers tools and contributes system prompt context. Two built-in skills:
+**Completed.** Compile-time capability bundles in `ec_capability_table.c`. Each capability bundle
+registers tools and contributes system prompt context. Two built-in capability bundles:
 `hw_register_control` and `web_browsing`.
 
 ---
@@ -107,7 +107,7 @@ verification. Certificate validation set to `MBEDTLS_SSL_VERIFY_REQUIRED`.
 
 **Completed.** `web_search` tool calls the Brave Search API
 (`GET /res/v1/web/search?q=...&count=N`). `web_fetch` tool performs HTTP GET on
-arbitrary URLs. Both registered via the `web_browsing` skill with appropriate
+arbitrary URLs. Both registered via the `web_browsing` capability bundle with appropriate
 system context for the LLM.
 
 ---
@@ -127,7 +127,7 @@ dispatches, and agent loop iterations. All output goes to stderr.
 query the ASIC register map on demand. Register descriptors are compile-time
 const tables defined in `ec_hw_datasheet.h` structs. Each ASIC has its own
 header (e.g., `ec_hw_example_asic.h` with UART0 and GPIO modules). The
-`hw_datasheet` skill system context instructs the LLM to always look up
+`hw_datasheet` capability bundle system context instructs the LLM to always look up
 register details before reading/writing — no guessing addresses or bit layouts.
 
 ---
