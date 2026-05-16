@@ -10,8 +10,8 @@ The FreeRTOS backend remains stubbed, pending target hardware bring-up.
 
 | Component           | File(s)                        | Status                              |
 |---------------------|--------------------------------|-------------------------------------|
-| Socket layer        | `ec_socket.c/h`                | POSIX done (TCP + TLS); FreeRTOS stubbed |
-| TLS (mbedTLS)       | `ec_socket.c`, `ec_cacerts.h`  | Done — embedded CA bundle, no filesystem |
+| Socket layer        | `ec_socket.h` + platform ports | POSIX, FreeRTOS, and bare-metal HAL ports |
+| TLS (mbedTLS)       | platform socket ports, `ec_cacerts.h` | POSIX/FreeRTOS via mbedTLS; bare-metal via HAL |
 | HTTP client         | `ec_http.c/h`                  | Done (chunked encoding, TLS pass-through) |
 | JSON builder/parser | `ec_json.c/h`                  | Done (writer + path-based parser)   |
 | Chat API            | `ec_api.c/h`                   | Done (text + tool_calls responses)  |
@@ -23,8 +23,8 @@ The FreeRTOS backend remains stubbed, pending target hardware bring-up.
 | Session layer       | `ec_session.c/h`               | Done (ring buffer, tool_call support) |
 | Agent loop          | `ec_agent.c/h`                 | Done (multi-iteration tool dispatch) |
 | I/O abstraction     | `ec_io.c/h`                    | Done                                |
-| UART I/O backend    | `ec_io_uart.c`                 | Done (stdin/stdout on POSIX)        |
-| Telnet I/O backend  | `ec_io_telnet.c`               | Done (TCP server on configurable port) |
+| UART I/O backend    | `ec_io_*_uart.c`               | POSIX stdin/stdout plus embedded HAL bridges |
+| Telnet I/O backend  | `ec_io_*_telnet.c`             | POSIX and FreeRTOS TCP server backends |
 | Debug logging       | `ec_log.c/h`                   | Done (EC_DEBUG=1 on POSIX, compile-time on FreeRTOS) |
 | E2E test suite      | `tests/test_e2e.c`             | 14 tests passing (mock HTTP layer)  |
 | Demo application    | `main.c`                       | POSIX CLI demo with env config      |
@@ -33,10 +33,11 @@ The FreeRTOS backend remains stubbed, pending target hardware bring-up.
 
 | Component              | Files                        | Notes                               |
 |------------------------|------------------------------|-------------------------------------|
-| FreeRTOS sockets       | `ec_socket.c` (FREERTOS)     | Replace stubs with FreeRTOS+TCP     |
-| FreeRTOS UART I/O      | `ec_io_uart.c` (FREERTOS)    | Wire to HAL UART driver             |
-| FreeRTOS Telnet I/O    | `ec_io_telnet.c` (FREERTOS)  | Wire to FreeRTOS+TCP server socket  |
-| FreeRTOS TLS           | `ec_socket.c` (FREERTOS)     | Socket layer is TLS-aware; needs BIO callbacks |
+| FreeRTOS sockets       | `src/platform/freertos/ec_socket_freertos.c` | FreeRTOS+TCP backend |
+| FreeRTOS UART I/O      | `src/platform/freertos/ec_io_freertos_uart.c` | HAL UART bridge |
+| FreeRTOS Telnet I/O    | `src/platform/freertos/ec_io_freertos_telnet.c` | FreeRTOS+TCP server socket |
+| FreeRTOS TLS           | `src/platform/freertos/ec_socket_freertos.c` | Socket layer is TLS-aware via BIO callbacks |
+| Bare-metal port        | `src/platform/baremetal/` | UART/socket HAL bridges and direct MMIO |
 | Flash/NVS persistence  | `ec_session.c`               | Serialize/deserialize history       |
 | HW register allowlist  | `ec_tool.c`                  | Address range validation            |
 | Minimal mbedTLS config | `ec_mbedtls_config.h`        | Reduce binary size for embedded     |
@@ -94,7 +95,9 @@ registers tools and contributes system prompt context. Two built-in skills:
 ### Phase 7 — TLS / HTTPS ✅
 
 **Completed.** mbedTLS v3.6.5 integrated as git submodule (`third_party/mbedtls`).
-Transparent TLS in `ec_socket.c` via custom BIO callbacks on the raw fd.
+Transparent TLS in the POSIX and FreeRTOS socket ports via custom BIO callbacks
+on the raw fd/socket. Bare-metal builds delegate TLS to the registered socket
+HAL.
 Embedded CA bundle in `ec_cacerts.h` (no filesystem dependency). SNI hostname
 verification. Certificate validation set to `MBEDTLS_SSL_VERIFY_REQUIRED`.
 

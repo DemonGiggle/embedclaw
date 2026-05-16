@@ -3,9 +3,9 @@ EmbedClaw
 
 ## Purpose
 
-EmbedClaw is an embedded AI agent runtime for FreeRTOS. It runs on constrained
-hardware and acts as an intelligent automation layer: it accepts user input over
-a serial interface (UART, Telnet, or similar), forwards it to a remote
+EmbedClaw is an embedded AI agent runtime for FreeRTOS and bare-metal targets.
+It runs on constrained hardware and acts as an intelligent automation layer: it
+accepts user input over a serial/network transport, forwards it to a remote
 OpenAI-compatible LLM, and executes tool calls returned by the LLM — such as
 reading and writing hardware registers or searching the web — before returning
 the final answer to the user.
@@ -17,8 +17,9 @@ protocol, different execution environment.
 
 ## Design Principles
 
-- **Single-threaded**: No RTOS threads or callbacks. The agent loop runs to
-  completion in a single task. All I/O is blocking with timeouts.
+- **Single-threaded**: No RTOS threads are required. The agent loop runs to
+  completion in a single task or foreground loop. All I/O is blocking with
+  timeouts.
 - **No dynamic allocation in hot paths**: All buffers are caller-provided or
   statically declared. No `malloc` in the agent or tool layers.
 - **Minimal external dependencies**: JSON, HTTP, and the agent loop are all
@@ -94,8 +95,8 @@ protocol, different execution environment.
                      ▼
 ┌─────────────────────────────────────────────────────┐
 │  Socket Abstraction  (ec_socket)                    │
-│  TCP + optional TLS (mbedTLS, embedded CA bundle)   │
-│  FreeRTOS+TCP backend  /  POSIX shim (host testing) │
+│  TCP + optional TLS                                 │
+│  POSIX / FreeRTOS+TCP / bare-metal HAL              │
 └─────────────────────────────────────────────────────┘
 ```
 
@@ -103,7 +104,7 @@ protocol, different execution environment.
 
 ## Components
 
-### 1. Socket Abstraction (`ec_socket.h` / `ec_socket.c`)
+### 1. Socket Abstraction (`ec_socket.h` + platform port)
 
 Wraps the platform TCP API and optional TLS into four functions:
 
@@ -114,9 +115,11 @@ int          ec_socket_recv(ec_socket_t *s, void *buf, size_t len, uint32_t time
 void         ec_socket_close(ec_socket_t *s);
 ```
 
-Two backends selected at compile time via `EC_PLATFORM`:
+Backends are selected at compile time via `EC_PLATFORM`:
 - `POSIX` — standard BSD sockets, used for host-side development and testing.
 - `FREERTOS` — FreeRTOS+TCP sockets (targeting FreeRTOS+TCP 10.2.1).
+- `BAREMETAL` — board-provided socket HAL callbacks, allowing vendor TCP/IP,
+  modem, or TLS offload stacks without any FreeRTOS dependency.
 
 **TLS support** (when `EC_CONFIG_USE_TLS=1`):
 - mbedTLS v3.6.5 integrated as a git submodule (`third_party/mbedtls`).
@@ -306,10 +309,10 @@ int  ec_io_write(const char *str);
 ```
 
 Implementations:
-- **UART** (`ec_io_uart.c`): wraps POSIX stdin/stdout on host builds and uses
+- **UART** (`ec_io_*_uart.c`): wraps POSIX stdin/stdout on host builds and uses
   board-supplied FreeRTOS UART HAL hooks via `ec_io_uart_set_hal()` on
   embedded builds.
-- **Telnet** (`ec_io_telnet.c`): wraps a blocking single-client TCP server on
+- **Telnet** (`ec_io_*_telnet.c`): wraps a blocking single-client TCP server on
   POSIX and FreeRTOS+TCP builds.
 
 ### 10. Debug Logging (`ec_log.h` / `ec_log.c`)

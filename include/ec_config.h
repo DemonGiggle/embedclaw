@@ -4,9 +4,9 @@
 /*
  * EmbedClaw compile-time configuration.
  *
- * On FreeRTOS these are the actual values used at runtime.
- * On POSIX they serve as defaults that can be overridden via environment
- * variables (EC_API_KEY, EC_API_HOST, EC_API_PORT, EC_MODEL).
+ * On FreeRTOS and bare-metal targets these are the actual values used at
+ * runtime. On POSIX they serve as defaults that can be overridden via
+ * environment variables (EC_API_KEY, EC_API_HOST, EC_API_PORT, EC_MODEL).
  *
  * Edit these before building for your target.
  */
@@ -66,7 +66,7 @@
 #define EC_CONFIG_WEB_FETCH_MAX        4096 /* max bytes returned by web_fetch */
 #define EC_CONFIG_WEB_SEARCH_COUNT     5    /* results per search */
 
-/* Debug logging (FreeRTOS: set to 1 to enable; POSIX: use EC_DEBUG=1 env) */
+/* Debug logging (embedded: set to 1 to enable; POSIX: use EC_DEBUG=1 env) */
 #ifndef EC_CONFIG_DEBUG_LOG
 #define EC_CONFIG_DEBUG_LOG    0
 #endif
