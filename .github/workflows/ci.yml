@@ -16,11 +16,11 @@ jobs:
           - name: posix
             platform: POSIX
             host_sim: OFF
-            ctest_regex: e2e|telnet-io
+            ctest_regex: e2e|unit|baremetal-hal|telnet-io
           - name: host-sim
             platform: POSIX
             host_sim: ON
-            ctest_regex: e2e|host-sim|telnet-io
+            ctest_regex: e2e|unit|baremetal-hal|host-sim|telnet-io
           - name: baremetal
             platform: BAREMETAL
             host_sim: OFF

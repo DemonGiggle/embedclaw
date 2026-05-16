@@ -175,6 +175,25 @@ if(EC_PLATFORM STREQUAL "POSIX")
     target_include_directories(embedclaw_telnet_tests PRIVATE include tests)
     target_compile_definitions(embedclaw_telnet_tests PRIVATE EC_CONFIG_TELNET_PORT=24232)
 
+    add_executable(embedclaw_unit_tests
+        src/core/ec_json.c
+        src/core/ec_session.c
+        tests/test_unit.c
+    )
+    target_include_directories(embedclaw_unit_tests PRIVATE include tests)
+
+    add_executable(embedclaw_baremetal_hal_tests
+        src/core/ec_io.c
+        src/platform/baremetal/ec_io_baremetal_uart.c
+        src/platform/baremetal/ec_socket_baremetal.c
+        tests/test_baremetal_hal.c
+    )
+    target_include_directories(embedclaw_baremetal_hal_tests PRIVATE include tests)
+    target_compile_definitions(embedclaw_baremetal_hal_tests PRIVATE
+        EC_PLATFORM_BAREMETAL
+        EC_CONFIG_USE_TLS=0
+    )
+
     if(EC_HOST_SIM)
         add_executable(embedclaw_host_sim_tests
             ${EC_SOURCES_NO_HTTP}
@@ -190,6 +209,8 @@ if(EC_PLATFORM STREQUAL "POSIX")
 
     enable_testing()
     add_test(NAME e2e COMMAND embedclaw_tests)
+    add_test(NAME unit COMMAND embedclaw_unit_tests)
+    add_test(NAME baremetal-hal COMMAND embedclaw_baremetal_hal_tests)
     add_test(NAME telnet-io COMMAND embedclaw_telnet_tests)
     if(EC_HOST_SIM)
         add_test(NAME host-sim COMMAND embedclaw_host_sim_tests)
