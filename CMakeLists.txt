@@ -73,8 +73,8 @@ set(EC_CORE_SOURCES
     src/core/ec_session.c
     src/core/ec_agent.c
     src/core/ec_io.c
-    src/core/ec_skill.c
-    src/core/ec_skill_table.c
+    src/core/ec_capability.c
+    src/core/ec_capability_table.c
 )
 
 if(EC_PLATFORM STREQUAL "POSIX")
@@ -153,8 +153,8 @@ if(EC_PLATFORM STREQUAL "POSIX")
         src/core/ec_io.c
         src/platform/posix/ec_io_posix_uart.c
         src/platform/posix/ec_io_posix_telnet.c
-        src/core/ec_skill.c
-        src/core/ec_skill_table.c
+        src/core/ec_capability.c
+        src/core/ec_capability_table.c
     )
 
     add_executable(embedclaw_tests
@@ -163,7 +163,7 @@ if(EC_PLATFORM STREQUAL "POSIX")
         tests/test_e2e.c
     )
     target_include_directories(embedclaw_tests PRIVATE include tests)
-    # Tests use mock HTTP — force TLS off so ec_skill_table.c doesn't try
+    # Tests use mock HTTP — force TLS off so ec_capability_table.c doesn't try
     # to include mbedTLS headers
     target_compile_definitions(embedclaw_tests PRIVATE EC_CONFIG_USE_TLS=0)
 

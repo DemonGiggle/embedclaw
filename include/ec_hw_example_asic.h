@@ -12,7 +12,7 @@
  *   hw_module_list      → lists all modules
  *   hw_register_lookup  → returns registers and bit fields for a module
  *
- * Include this header from ec_skill_table.c to activate it.
+ * Include this header from ec_capability_table.c to activate it.
  */
 
 #include "ec_hw_datasheet.h"

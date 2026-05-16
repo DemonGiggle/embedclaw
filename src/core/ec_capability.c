@@ -1,4 +1,4 @@
-#include "ec_skill.h"
+#include "ec_capability.h"
 
 #include <string.h>
 #include <stdio.h>
@@ -27,7 +27,7 @@ const ec_capability_bundle_t *ec_capability_bundles(size_t *count)
     return EC_CAPABILITY_TABLE;
 }
 
-void ec_skill_init(void)
+void ec_capability_init(void)
 {
     /* Build combined system prompt */
     memset(s_system_prompt, 0, sizeof(s_system_prompt));
@@ -69,7 +69,7 @@ void ec_skill_init(void)
     }
 }
 
-const char *ec_skill_get_system_prompt(void)
+const char *ec_capability_get_system_prompt(void)
 {
     return s_system_prompt;
 }

@@ -55,11 +55,11 @@
 #define EC_CONFIG_UART_RX_TIMEOUT_MS   100  /* FreeRTOS UART read poll timeout */
 #define EC_CONFIG_UART_TX_TIMEOUT_MS   1000 /* FreeRTOS UART write timeout */
 
-/* Skill layer */
+/* Capability Bundle layer */
 #define EC_CONFIG_SYSTEM_PROMPT_BUF    2048 /* combined system prompt buffer */
-#define EC_CONFIG_MAX_SKILLS           16   /* max registered skills */
+#define EC_CONFIG_MAX_CAPABILITY_BUNDLES 16 /* max registered capability bundles */
 
-/* Web browsing skill */
+/* Web browsing capability bundle */
 #define EC_CONFIG_BRAVE_API_HOST       "api.search.brave.com"
 #define EC_CONFIG_BRAVE_API_PORT       443
 #define EC_CONFIG_BRAVE_API_KEY        "BSA-CHANGE-ME"

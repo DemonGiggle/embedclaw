@@ -52,7 +52,7 @@ It is the embedded counterpart to OpenClaw — same agentic loop, same OpenAI to
        │          │
        ▼          ▼
 ┌────────────┐  ┌─────────────────────────────────────┐
-│ Model Adapter │ │  Skill System  (ec_skill)            │
+│ Model Adapter │ │  Capability Bundles (ec_capability) │
 │   (ec_model)  │ │  ┌───────────────────────────────┐   │
 │ provider      │ │  │ hw_register_control            │   │
 │ selection     │ │  │  hw_register_read/write        │   │
@@ -83,7 +83,7 @@ It is the embedded counterpart to OpenClaw — same agentic loop, same OpenAI to
 The source tree follows the same boundary:
 
 ```text
-src/core/                Agent, model, HTTP, JSON, session, tools, skills
+src/core/                Agent, model, HTTP, JSON, session, tools, capability bundles
 src/platform/posix/      POSIX socket, stdin/stdout UART shim, Telnet, mock MMIO
 src/platform/freertos/   FreeRTOS+TCP, UART HAL bridge, Telnet, direct MMIO
 src/platform/baremetal/  UART HAL bridge, socket HAL bridge, direct MMIO
@@ -310,16 +310,16 @@ All limits are compile-time constants in `include/ec_config.h`:
 | `EC_CONFIG_MAX_HISTORY` | `64` | Max messages in conversation history |
 | `EC_CONFIG_MAX_TOOL_CALLS` | `4` | Max tool calls per LLM response |
 | `EC_CONFIG_MAX_AGENT_ITERS` | `8` | Max tool-call iterations per turn |
-| **Tool / skill framework** | | |
+| **Tool / capability bundle framework** | | |
 | `EC_CONFIG_MAX_TOOLS` | `16` | Max registered tools |
-| `EC_CONFIG_MAX_SKILLS` | `16` | Max registered capability bundles |
+| `EC_CONFIG_MAX_CAPABILITY_BUNDLES` | `16` | Max registered capability bundles |
 | `EC_CONFIG_SYSTEM_PROMPT_BUF` | `2048` | Combined system prompt buffer (bytes) |
 | **I/O layer** | | |
 | `EC_CONFIG_IO_LINE_BUF` | `256` | User input line buffer (bytes) |
 | `EC_CONFIG_TELNET_PORT` | `2323` | Telnet listen port |
 | `EC_CONFIG_UART_RX_TIMEOUT_MS` | `100` | FreeRTOS UART read poll timeout (ms) |
 | `EC_CONFIG_UART_TX_TIMEOUT_MS` | `1000` | FreeRTOS UART write timeout (ms) |
-| **Web browsing skill** | | |
+| **Web browsing capability bundle** | | |
 | `EC_CONFIG_BRAVE_API_HOST` | `api.search.brave.com` | Brave Search API hostname |
 | `EC_CONFIG_BRAVE_API_PORT` | `443` | Brave Search API port |
 | `EC_CONFIG_BRAVE_API_KEY` | `BSA-CHANGE-ME` | Brave Search subscription token |
@@ -472,7 +472,7 @@ const ec_hw_module_t *EC_HW_MODULES      = s_my_modules;
 const size_t          EC_HW_MODULE_COUNT = sizeof(s_my_modules) / sizeof(s_my_modules[0]);
 ```
 
-Then include your header from `ec_skill_table.c` in place of `ec_hw_example_asic.h`.
+Then include your header from `ec_capability_table.c` in place of `ec_hw_example_asic.h`.
 
 ---
 

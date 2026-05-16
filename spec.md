@@ -26,7 +26,7 @@ protocol, different execution environment.
   built in. mbedTLS is the only third-party dependency (for TLS/HTTPS).
 - **OpenAI-compatible protocol**: Tool calls use the standard OpenAI
   `tool_calls` JSON format. No custom protocol invented.
-- **Extensible via skills**: New capabilities are added as skills — compile-time
+- **Extensible via capability bundles**: New capabilities are added as capability bundles — compile-time
   bundles that contribute tools and LLM system context.
 - **Extensible I/O**: New input sources can be added without touching the agent
   core.
@@ -64,7 +64,7 @@ protocol, different execution environment.
 │  1. Append user message to history                  │
 │  2. Send full history to LLM                        │
 │  3. Receive response                                │
-│  4. If tool_calls → dispatch to skill/tool layer    │
+│  4. If tool_calls → dispatch to capability bundle/tool layer    │
 │     append tool results → go to 2                   │
 │  5. If text response → send to user via I/O layer   │
 │                                                     │
@@ -73,7 +73,7 @@ protocol, different execution environment.
            │                      │
            ▼                      ▼
 ┌────────────────────┐  ┌─────────────────────────────┐
-│  Chat API Layer    │  │  Skill System  (ec_skill)    │
+│  Chat API Layer    │  │  Capability Bundles (ec_capability) │
 │  (ec_api)          │  │  ┌────────────────────────┐  │
 │  JSON build/parse  │  │  │ hw_register_control    │  │
 │  /v1/chat/complete │  │  │  hw_register_read/     │  │
@@ -214,7 +214,7 @@ int ec_tool_dispatch(const ec_api_tool_call_t *call, char *out_json, size_t out_
 const ec_api_tool_def_t *ec_tool_api_defs(size_t *count);
 ```
 
-### 6. Capability Bundle System (`ec_skill.h` / `ec_skill.c` / `ec_skill_table.c`)
+### 6. Capability Bundle System (`ec_capability.h` / `ec_capability.c` / `ec_capability_table.c`)
 
 Capability bundles are compile-time capability groups. Each bundle contributes:
 - One or more tools (registered via `ec_tool_register`)
@@ -372,7 +372,7 @@ socket/TLS stack.
 | `EC_CONFIG_MAX_TOOL_CALLS`    | 4       | Max tool_calls in one LLM response   |
 | `EC_CONFIG_MAX_HISTORY`       | 64      | Max messages in conversation history |
 | `EC_CONFIG_MAX_TOOLS`         | 16      | Max registered tools                 |
-| `EC_CONFIG_MAX_SKILLS`        | 16      | Max registered capability bundles    |
+| `EC_CONFIG_MAX_CAPABILITY_BUNDLES` | 16 | Max registered capability bundles    |
 | `EC_CONFIG_MAX_AGENT_ITERS`   | 8       | Max agentic loop iterations per turn |
 
 ---

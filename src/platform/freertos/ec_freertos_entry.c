@@ -1,7 +1,7 @@
 #include "ec_model.h"
 #include "ec_agent.h"
 #include "ec_session.h"
-#include "ec_skill.h"
+#include "ec_capability.h"
 #include "ec_io.h"
 #include "ec_config.h"
 #include "ec_log.h"
@@ -19,9 +19,9 @@ static ec_agent_t s_agent;
 static void run_agent_loop(const ec_model_config_t *config, const char *model)
 {
     ec_log_init();
-    ec_skill_init();
+    ec_capability_init();
 
-    ec_session_init(&s_session, ec_skill_get_system_prompt());
+    ec_session_init(&s_session, ec_capability_get_system_prompt());
     ec_agent_init(&s_agent, config, model, &s_session);
 
     char line[EC_CONFIG_IO_LINE_BUF];

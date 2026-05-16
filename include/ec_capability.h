@@ -1,5 +1,5 @@
-#ifndef EC_SKILL_H
-#define EC_SKILL_H
+#ifndef EC_CAPABILITY_H
+#define EC_CAPABILITY_H
 
 #include "ec_tool.h"
 #include "ec_config.h"
@@ -25,7 +25,7 @@ typedef enum {
  *   - tools[]         — tool definitions registered with the tool
  *                       framework and advertised to the LLM.
  *
- * Bundles are defined in ec_skill_table.c. That is the only file you
+ * Bundles are defined in ec_capability_table.c. That is the only file you
  * need to edit to add, remove, or reconfigure capabilities.
  */
 typedef struct {
@@ -38,44 +38,37 @@ typedef struct {
     ec_capability_policy_t    policy;
 } ec_capability_bundle_t;
 
-/* Backward-compatible alias while the rest of the codebase transitions. */
-typedef ec_capability_bundle_t ec_skill_t;
-
 /* -------------------------------------------------------------------------
- * Skill table — defined in ec_skill_table.c, referenced here.
+ * Capability table — defined in ec_capability_table.c, referenced here.
  * ------------------------------------------------------------------------- */
 
 extern const ec_capability_bundle_t  *EC_CAPABILITY_TABLE;
 extern const size_t                   EC_CAPABILITY_TABLE_COUNT;
 
-/* Backward-compatible aliases while callers migrate to the new terminology. */
-#define EC_SKILL_TABLE       EC_CAPABILITY_TABLE
-#define EC_SKILL_TABLE_COUNT EC_CAPABILITY_TABLE_COUNT
-
 /*
- * Base system prompt — defined in ec_skill_table.c.
- * Describes the device personality before any skill contexts are appended.
+ * Base system prompt — defined in ec_capability_table.c.
+ * Describes the device personality before any capability contexts are appended.
  */
 extern const char EC_BASE_SYSTEM_PROMPT[];
 
 /* -------------------------------------------------------------------------
- * Skill framework API
+ * Capability bundle API
  * ------------------------------------------------------------------------- */
 
 /**
- * Initialise the skill framework.
+ * Initialise the capability bundle framework.
  * Iterates EC_CAPABILITY_TABLE, registers every tool with ec_tool, and builds
  * the combined system prompt.  Call once at startup before the agent loop.
  */
-void ec_skill_init(void);
+void ec_capability_init(void);
 
 /**
- * Return the combined system prompt built by ec_skill_init():
+ * Return the combined system prompt built by ec_capability_init():
  *   EC_BASE_SYSTEM_PROMPT + each capability bundle's system_context/policy_note
  * The returned pointer is to a static buffer valid for the lifetime of
  * the program.
  */
-const char *ec_skill_get_system_prompt(void);
+const char *ec_capability_get_system_prompt(void);
 
 const ec_capability_bundle_t *ec_capability_bundles(size_t *count);
 const char *ec_capability_policy_name(ec_capability_policy_t policy);
@@ -84,4 +77,4 @@ const char *ec_capability_policy_name(ec_capability_policy_t policy);
 }
 #endif
 
-#endif /* EC_SKILL_H */
+#endif /* EC_CAPABILITY_H */
