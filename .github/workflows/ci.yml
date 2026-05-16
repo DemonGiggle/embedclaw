@@ -14,11 +14,17 @@ jobs:
       matrix:
         include:
           - name: posix
+            platform: POSIX
             host_sim: OFF
             ctest_regex: e2e|telnet-io
           - name: host-sim
+            platform: POSIX
             host_sim: ON
             ctest_regex: e2e|host-sim|telnet-io
+          - name: baremetal
+            platform: BAREMETAL
+            host_sim: OFF
+            ctest_regex: ''
 
     name: ${{ matrix.name }}
 
@@ -29,7 +35,7 @@ jobs:
       - name: Configure
         run: >
           cmake -S . -B build
-          -DEC_PLATFORM=POSIX
+          -DEC_PLATFORM=${{ matrix.platform }}
           -DEC_ENABLE_TLS=OFF
           -DEC_HOST_SIM=${{ matrix.host_sim }}
 
@@ -37,4 +43,5 @@ jobs:
         run: cmake --build build
 
       - name: Test
+        if: matrix.ctest_regex != ''
         run: ctest --test-dir build --output-on-failure -R '${{ matrix.ctest_regex }}'

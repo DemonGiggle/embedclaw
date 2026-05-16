@@ -44,14 +44,14 @@ int ec_io_write(const char *str);
  * Available backends — include ec_io_uart.h / ec_io_telnet.h for ops structs.
  * ------------------------------------------------------------------------- */
 
-/** POSIX: stdin/stdout. FreeRTOS: UART HAL (stub). */
+/** POSIX: stdin/stdout. FreeRTOS/bare-metal: UART HAL bridge. */
 extern const ec_io_ops_t ec_io_uart_ops;
 
 /*
- * FreeRTOS UART HAL bridge.
+ * Embedded UART HAL bridge.
  *
  * Provide blocking or timeout-based byte transport hooks from your board/HAL,
- * then call ec_io_uart_set_hal() before using ec_io_uart_ops on FreeRTOS.
+ * then call ec_io_uart_set_hal() before using ec_io_uart_ops on embedded ports.
  *
  * Return conventions for read/write hooks:
  *   > 0  number of bytes transferred

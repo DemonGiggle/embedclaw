@@ -1,6 +1,10 @@
 # EmbedClaw
 
-An embedded AI agent runtime for FreeRTOS. EmbedClaw runs on constrained hardware and acts as an intelligent automation layer: it accepts user input over a serial interface (UART, Telnet, or similar), forwards it to a remote OpenAI-compatible LLM, executes tool calls returned by the LLM (such as reading and writing hardware registers), and returns the final answer to the user.
+An embedded AI agent runtime for constrained targets. EmbedClaw can run on
+FreeRTOS, bare-metal firmware, or POSIX host builds: it accepts user input over
+a serial/network transport, forwards it to a remote OpenAI-compatible LLM,
+executes tool calls returned by the LLM (such as reading and writing hardware
+registers), and returns the final answer to the user.
 
 It is the embedded counterpart to OpenClaw — same agentic loop, same OpenAI tool-call protocol, different execution environment.
 
@@ -10,7 +14,7 @@ It is the embedded counterpart to OpenClaw — same agentic loop, same OpenAI to
 
 - **OpenAI-compatible** — uses the standard `/v1/chat/completions` API with `tool_calls` JSON format; no custom protocol
 - **Provider adapter boundary** — the agent loop talks to `ec_model`, so model/provider backends can evolve without rewriting the core loop
-- **TLS/HTTPS** — mbedTLS integration with embedded CA bundle; no filesystem required
+- **TLS/HTTPS** — mbedTLS integration on POSIX/FreeRTOS, or board-provided TLS through the bare-metal socket HAL
 - **Agentic loop** — dispatches tool calls from the LLM, feeds results back, and loops until a final text response
 - **Capability bundles** — compile-time capability groups with explicit policy boundaries; each bundle contributes tools and LLM system context
 - **Host simulation profile** — explicit POSIX simulation mode for exercising almost all of the runtime on a desktop host
@@ -19,7 +23,8 @@ It is the embedded counterpart to OpenClaw — same agentic loop, same OpenAI to
 - **Persistent conversation** — session history survives UART/Telnet reconnects across the device lifetime
 - **Transport-agnostic I/O** — swap between UART and Telnet (or add new transports) without touching the agent logic
 - **No dynamic allocation in hot paths** — all buffers are statically sized; predictable memory usage on embedded targets
-- **Single-threaded** — no RTOS threading required; the entire agent loop runs to completion in one task
+- **Single-threaded** — no RTOS threading required; the entire agent loop runs to completion in one task or foreground loop
+- **Bare-metal port** — reusable UART, socket, and direct-MMIO HAL boundaries with no FreeRTOS dependency
 - **POSIX build** — full host build for development and testing (no hardware required)
 
 ---
@@ -70,10 +75,24 @@ It is the embedded counterpart to OpenClaw — same agentic loop, same OpenAI to
              │
              ▼
 ┌─────────────────────────┐
-│  Socket  (ec_socket)    │  TCP + optional TLS (mbedTLS)
-│                         │  FreeRTOS+TCP / POSIX
+│  Socket  (ec_socket)    │  TCP + optional TLS
+│                         │  POSIX / FreeRTOS+TCP / bare-metal HAL
 └─────────────────────────┘
 ```
+
+The source tree follows the same boundary:
+
+```text
+src/core/                Agent, model, HTTP, JSON, session, tools, skills
+src/platform/posix/      POSIX socket, stdin/stdout UART shim, Telnet, mock MMIO
+src/platform/freertos/   FreeRTOS+TCP, UART HAL bridge, Telnet, direct MMIO
+src/platform/baremetal/  UART HAL bridge, socket HAL bridge, direct MMIO
+src/app/                 Host demo entry points
+```
+
+Code under `src/core/` is shared by every target and should not include
+platform headers. Platform-specific files own OS, board, socket, and MMIO
+integration.
 
 ---
 
@@ -83,8 +102,9 @@ It is the embedded counterpart to OpenClaw — same agentic loop, same OpenAI to
 
 - CMake ≥ 3.10
 - C99 compiler (GCC or Clang)
-- mbedTLS (included as a git submodule for TLS/HTTPS support)
+- mbedTLS (included as a git submodule for POSIX/FreeRTOS TLS/HTTPS support)
 - For FreeRTOS builds: FreeRTOS+TCP 10.2.1 and a cross-compiler toolchain
+- For bare-metal builds: board HAL callbacks for UART and socket/network access
 
 ### Cloning
 
@@ -172,6 +192,22 @@ mkdir build && cd build
 cmake -DEC_PLATFORM=FREERTOS -DFREERTOS_PATH=/path/to/freertos ..
 make
 ```
+
+### Bare-metal build
+
+```sh
+mkdir build && cd build
+cmake -DEC_PLATFORM=BAREMETAL -DEC_ENABLE_TLS=OFF ..
+make
+```
+
+Bare-metal builds produce `libembedclaw.a` and no demo executable. Board code
+owns startup, calls `ec_io_uart_set_hal()` for the UART byte transport, calls
+`ec_socket_baremetal_set_hal()` for network/TLS access, then initializes
+`ec_io_uart_ops` and runs the same `ec_agent` loop used by the other ports.
+
+`EC_ENABLE_TLS=ON` is allowed for bare-metal builds, but TLS is delegated to the
+registered socket HAL instead of linking mbedTLS directly.
 
 ---
 
@@ -348,8 +384,38 @@ static const ec_io_ops_t my_io_ops = {
 ec_io_init(&my_io_ops);
 ```
 
-For the built-in FreeRTOS UART backend, board code provides the actual UART
-transport hooks through `ec_io_uart_set_hal()`, then selects `ec_io_uart_ops`.
+For the built-in FreeRTOS and bare-metal UART backends, board code provides the
+actual UART transport hooks through `ec_io_uart_set_hal()`, then selects
+`ec_io_uart_ops`.
+
+## Adding a bare-metal socket backend
+
+Bare-metal firmware registers a socket HAL before the model or web tools make
+network requests:
+
+```c
+#include "ec_socket.h"
+
+static int board_connect(void *ctx, const char *host, uint16_t port, int use_tls);
+static int board_send(void *ctx, const void *data, size_t len);
+static int board_recv(void *ctx, void *buf, size_t len, uint32_t timeout_ms);
+static void board_close(void *ctx);
+
+static const ec_socket_baremetal_hal_t socket_hal = {
+    .ctx = NULL,
+    .connect = board_connect,
+    .send = board_send,
+    .recv = board_recv,
+    .close = board_close,
+};
+
+ec_socket_baremetal_set_hal(&socket_hal);
+```
+
+The HAL may wrap a vendor TCP/IP stack, Wi-Fi module, cellular modem, or TLS
+offload engine. The core HTTP client continues to call `ec_socket_connect()`,
+`ec_socket_send()`, `ec_socket_recv()`, and `ec_socket_close()` regardless of
+platform.
 
 ---
 
@@ -460,7 +526,8 @@ Set `EC_DEBUG=1` to trace the full agent loop — every LLM request/response JSO
 EC_DEBUG=1 ./build/embedclaw_demo 2>debug.log
 ```
 
-On FreeRTOS, enable at compile time by setting `EC_CONFIG_DEBUG_LOG=1` in `ec_config.h`.
+On FreeRTOS and bare-metal targets, enable at compile time by setting
+`EC_CONFIG_DEBUG_LOG=1` in `ec_config.h`.
 
 Example output:
 
@@ -487,15 +554,16 @@ Example output:
 
 ---
 
-## FreeRTOS bring-up validation
+## Embedded bring-up validation
 
 When validating a target build, use this minimum checklist:
 
 1. **Network path** — verify the device obtains network connectivity and can open a TCP connection to the configured model/API host.
 2. **UART path** — verify the board-specific `ec_io_uart_set_hal()` hooks can read a full line and write a reply without truncation or lockup.
-3. **Telnet path** — verify a client can connect, send fragmented lines, and receive responses over the FreeRTOS Telnet backend.
-4. **Safety path** — verify datasheet-backed register policy rejects unknown or forbidden accesses on target hardware.
-5. **Agent path** — run one full prompt/tool/result turn against the configured model provider with debug logging enabled.
+3. **Telnet path** — on FreeRTOS, verify a client can connect, send fragmented lines, and receive responses over the Telnet backend.
+4. **Bare-metal socket HAL** — on bare-metal targets, verify connect/send/recv/close callbacks handle timeout and close semantics expected by `ec_socket`.
+5. **Safety path** — verify datasheet-backed register policy rejects unknown or forbidden accesses on target hardware.
+6. **Agent path** — run one full prompt/tool/result turn against the configured model provider with debug logging enabled.
 
 ---
 
@@ -503,9 +571,10 @@ When validating a target build, use this minimum checklist:
 
 - [x] TLS/HTTPS via mbedTLS (POSIX, with embedded CA bundle)
 - [x] Debug logging (`EC_DEBUG=1`) for LLM request/response inspection
-- [x] FreeRTOS+TCP socket backend (`ec_socket.c`)
+- [x] FreeRTOS+TCP socket backend
 - [x] FreeRTOS UART backend
 - [x] FreeRTOS Telnet I/O backend
+- [x] Bare-metal UART/socket HAL port
 - [x] POSIX Telnet smoke validation coverage
 - [ ] FreeRTOS TLS support (socket layer already TLS-aware)
 - [ ] Flash/NVS persistence for conversation history across power cycles

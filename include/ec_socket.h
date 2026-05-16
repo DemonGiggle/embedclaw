@@ -11,6 +11,23 @@ extern "C" {
 /* Opaque socket handle */
 typedef struct ec_socket ec_socket_t;
 
+/*
+ * Bare-metal socket HAL.
+ *
+ * Board support code owns the network/modem/TLS stack and registers callbacks
+ * with ec_socket_baremetal_set_hal(). The EmbedClaw HTTP layer then uses the
+ * same ec_socket_* API as POSIX and FreeRTOS builds.
+ */
+typedef struct {
+    void *ctx;
+    int (*connect)(void *ctx, const char *host, uint16_t port, int use_tls);
+    int (*send)(void *ctx, const void *data, size_t len);
+    int (*recv)(void *ctx, void *buf, size_t len, uint32_t timeout_ms);
+    void (*close)(void *ctx);
+} ec_socket_baremetal_hal_t;
+
+void ec_socket_baremetal_set_hal(const ec_socket_baremetal_hal_t *hal);
+
 /**
  * Connect to a remote host over TCP, optionally with TLS.
  *
